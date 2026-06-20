@@ -1,11 +1,12 @@
 package com.phantom.dlib.client.gui;
 
+import com.phantom.dlib.client.config.ConfigManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 
 public class DLibMainScreen extends Screen {
@@ -20,18 +21,17 @@ public class DLibMainScreen extends Screen {
 
     @Override
     protected void init() {
+        // Ensure data states are perfectly synced from files upon opening GUI
+        ConfigManager.load();
+
         int leftPanelWidth = 140;
 
-        // Create Left List Pane
         this.modListWidget = new ModListWidget(this, 0, 0, leftPanelWidth, this.height);
         this.addRenderableWidget(this.modListWidget);
 
-        // Create Right Detail Pane
         this.configListWidget = new ConfigListWidget(leftPanelWidth, 0, this.width - leftPanelWidth, this.height);
         this.addRenderableWidget(this.configListWidget);
 
-        // --- RED CROSS CLOSE BUTTON ADDITION ---
-        // Places a crisp 20x20 cross escape button in the absolute top-right layout matrix corner
         this.addRenderableWidget(new RedCrossButton(this.width - 24, 4, 20, 20, this::onClose));
     }
 
@@ -44,8 +44,6 @@ public class DLibMainScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-
-        // Draw a layout line splitting the list setup from the configurations
         int leftPanelWidth = 140;
         graphics.fill(leftPanelWidth, 0, leftPanelWidth + 1, this.height, 0xFF555555);
     }
@@ -62,9 +60,6 @@ public class DLibMainScreen extends Screen {
         }
     }
 
-    /**
-     * Custom Bright Red Close Action Component
-     */
     private static class RedCrossButton extends AbstractWidget {
         private final Runnable pressAction;
 
@@ -78,13 +73,11 @@ public class DLibMainScreen extends Screen {
             boolean hovered = mouseX >= this.getX() && mouseX < this.getX() + this.width 
                     && mouseY >= this.getY() && mouseY < this.getY() + this.height;
 
-            // Fluid state-rendering transitions: Bright red when hovered, normal primary red otherwise
             int fillBg = hovered ? 0xFFFF2222 : 0xFFCC0000;
             
             graphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, fillBg);
-            graphics.outline(this.getX(), this.getY(), this.width, this.height, 0xFFFFFFFF); // Clean white outline
+            graphics.outline(this.getX(), this.getY(), this.width, this.height, 0xFFFFFFFF);
             
-            // Draw a perfectly centered "X" close mark identifier
             graphics.centeredText(Minecraft.getInstance().font, "X", 
                 this.getX() + this.width / 2, this.getY() + (this.height - 8) / 2, 0xFFFFFFFF);
         }
