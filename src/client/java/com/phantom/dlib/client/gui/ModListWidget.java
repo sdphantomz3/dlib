@@ -17,7 +17,6 @@ public class ModListWidget extends AbstractWidget {
     public ModListWidget(DLibMainScreen parentScreen, int x, int y, int width, int height) {
         super(x, y, width, height, Component.empty());
         this.parentScreen = parentScreen;
-        // Hook dynamically straight into the live persistence layer map keys
         this.registeredMods = ConfigManager.getRegisteredMods();
     }
 
@@ -67,7 +66,7 @@ public class ModListWidget extends AbstractWidget {
                 }
             }
         }
-        return super.mouseClicked(event, doubleClick);
+        return false;
     }
 
     @Override
