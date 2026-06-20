@@ -2,9 +2,9 @@ package com.phantom.dlib.client.gui;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import java.util.List;
 
@@ -22,25 +22,32 @@ public class ModListWidget extends AbstractWidget {
     protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         Minecraft mc = Minecraft.getInstance();
 
-        // 1. Draw a dark translucent backdrop for the left panel sidebar
-        graphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0x33000000);
+        // 1. Draw backdrop panel background
+        graphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0x55000000);
 
-        // 2. Iterate and draw list entries
         int itemHeight = 24;
         for (int i = 0; i < mockMods.size(); i++) {
-            int itemY = this.getY() + (i * itemHeight) + 5;
-            boolean isHovered = mouseX >= this.getX() && mouseX <= this.getX() + this.width 
-                    && mouseY >= itemY && mouseY < itemY + itemHeight;
+            int itemY = this.getY() + (i * itemHeight) + 8;
+            int itemWidth = this.width - 8;
             
-            // Highlight active selections and cursor hovers
+            boolean isHovered = mouseX >= this.getX() + 4 && mouseX <= this.getX() + 4 + itemWidth 
+                    && mouseY >= itemY && mouseY < itemY + itemHeight - 2;
+            
+            // Highlight active selections and hovers
             if (i == selectedIndex) {
-                graphics.fill(this.getX() + 4, itemY, this.getX() + this.width - 4, itemY + itemHeight - 2, 0x66FFFFFF);
+                graphics.fill(this.getX() + 4, itemY, this.getX() + 4 + itemWidth, itemY + itemHeight - 2, 0x44FFFFFF);
             } else if (isHovered) {
-                graphics.fill(this.getX() + 4, itemY, this.getX() + this.width - 4, itemY + itemHeight - 2, 0x33FFFFFF);
+                graphics.fill(this.getX() + 4, itemY, this.getX() + 4 + itemWidth, itemY + itemHeight - 2, 0x22FFFFFF);
             }
 
-            // Render text string using the non-deprecated graphics extractor engine
-            graphics.text(mc.font, mockMods.get(i), this.getX() + 10, itemY + 6, 0xFFFFFF);
+            // --- BORDER ADDITION ---
+            // Draw a distinct outer border framing each individual list selection item row
+            int borderColor = (i == selectedIndex) ? 0xFFFFFFFF : 0xFF555555; 
+            graphics.outline(this.getX() + 4, itemY, itemWidth, itemHeight - 2, borderColor);
+
+            // --- VISIBILITY FIX ---
+            // Changed color from 0xFFFFFF (transparent alpha) to 0xFFFFFFFF (opaque white text)
+            graphics.text(mc.font, mockMods.get(i), this.getX() + 12, itemY + 6, 0xFFFFFFFF);
         }
     }
 
@@ -51,12 +58,11 @@ public class ModListWidget extends AbstractWidget {
         double mouseX = event.x();
         double mouseY = event.y();
 
-        // Route clicks specifically into the list rows
-        if (mouseX >= this.getX() && mouseX <= this.getX() + this.width) {
+        if (mouseX >= this.getX() + 4 && mouseX <= this.getX() + this.width - 4) {
             int itemHeight = 24;
             for (int i = 0; i < mockMods.size(); i++) {
-                int itemY = this.getY() + (i * itemHeight) + 5;
-                if (mouseY >= itemY && mouseY < itemY + itemHeight) {
+                int itemY = this.getY() + (i * itemHeight) + 8;
+                if (mouseY >= itemY && mouseY < itemY + itemHeight - 2) {
                     this.selectedIndex = i;
                     this.parentScreen.setSelectedMod(mockMods.get(i));
                     this.playDownSound(Minecraft.getInstance().getSoundManager());

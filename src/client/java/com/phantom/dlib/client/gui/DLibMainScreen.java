@@ -1,6 +1,9 @@
 package com.phantom.dlib.client.gui;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -26,6 +29,10 @@ public class DLibMainScreen extends Screen {
         // Create Right Detail Pane
         this.configListWidget = new ConfigListWidget(leftPanelWidth, 0, this.width - leftPanelWidth, this.height);
         this.addRenderableWidget(this.configListWidget);
+
+        // --- RED CROSS CLOSE BUTTON ADDITION ---
+        // Places a crisp 20x20 cross escape button in the absolute top-right layout matrix corner
+        this.addRenderableWidget(new RedCrossButton(this.width - 24, 4, 20, 20, this::onClose));
     }
 
     public void setSelectedMod(String modName) {
@@ -36,10 +43,9 @@ public class DLibMainScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        // Super automatically processes the state extraction of child widgets added via addRenderableWidget
         super.extractRenderState(graphics, mouseX, mouseY, delta);
 
-        // Draw a clean vertical dividing stroke separating left pane from right pane
+        // Draw a layout line splitting the list setup from the configurations
         int leftPanelWidth = 140;
         graphics.fill(leftPanelWidth, 0, leftPanelWidth + 1, this.height, 0xFF555555);
     }
@@ -53,6 +59,48 @@ public class DLibMainScreen extends Screen {
     public void onClose() {
         if (this.minecraft != null) {
             this.minecraft.gui.setScreen(this.parentScreen);
+        }
+    }
+
+    /**
+     * Custom Bright Red Close Action Component
+     */
+    private static class RedCrossButton extends AbstractWidget {
+        private final Runnable pressAction;
+
+        public RedCrossButton(int x, int y, int width, int height, Runnable pressAction) {
+            super(x, y, width, height, Component.empty());
+            this.pressAction = pressAction;
+        }
+
+        @Override
+        protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+            boolean hovered = mouseX >= this.getX() && mouseX < this.getX() + this.width 
+                    && mouseY >= this.getY() && mouseY < this.getY() + this.height;
+
+            // Fluid state-rendering transitions: Bright red when hovered, normal primary red otherwise
+            int fillBg = hovered ? 0xFFFF2222 : 0xFFCC0000;
+            
+            graphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, fillBg);
+            graphics.outline(this.getX(), this.getY(), this.width, this.height, 0xFFFFFFFF); // Clean white outline
+            
+            // Draw a perfectly centered "X" close mark identifier
+            graphics.centeredText(Minecraft.getInstance().font, "X", 
+                this.getX() + this.width / 2, this.getY() + (this.height - 8) / 2, 0xFFFFFFFF);
+        }
+
+        @Override
+        public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
+            if (this.isActive() && this.isMouseOver(event.x(), event.y())) {
+                this.playDownSound(Minecraft.getInstance().getSoundManager());
+                this.pressAction.run();
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {
         }
     }
 }
