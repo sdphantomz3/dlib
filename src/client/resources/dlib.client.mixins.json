@@ -3,7 +3,7 @@
 	"package": "com.phantom.dlib.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"ExampleClientMixin"
+		"PauseScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
