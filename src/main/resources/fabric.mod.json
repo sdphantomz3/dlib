@@ -16,10 +16,10 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.phantom.dlib.Dlib"
+			"com.phantom.dlib.DLib"
 		],
 		"client": [
-			"com.phantom.dlib.client.DlibClient"
+			"com.phantom.dlib.client.DLibClient"
 		]
 	},
 	"mixins": [

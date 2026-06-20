@@ -7,7 +7,7 @@ import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class Dlib implements ModInitializer {
+public class DLib implements ModInitializer {
 	public static final String MOD_ID = "dlib";
 
 	// This logger is used to write text to the console and the log file.
