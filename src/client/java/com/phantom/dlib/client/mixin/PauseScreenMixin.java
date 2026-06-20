@@ -24,8 +24,8 @@ public class PauseScreenMixin extends Screen {
     private void dlib$addConfigButton(CallbackInfo ci) {
         // Defines the textures for your gear icon (requires assets in your resources folder)
         WidgetSprites gearSprites = new WidgetSprites(
-            Identifier.fromNamespaceAndPath("dlib", "textures/gui/config_button.png"),
-            Identifier.fromNamespaceAndPath("dlib", "textures/gui/config_button_hover.png")
+            Identifier.fromNamespaceAndPath("dlib", "textures/gui/sprites/config"),
+            Identifier.fromNamespaceAndPath("dlib", "textures/gui/sprites/config-highlighted")
         );
 
         // Aligns the button to the right side of the center buttons
