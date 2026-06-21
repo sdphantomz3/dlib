@@ -17,35 +17,29 @@ public class ConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File CONFIG_DIR = new File(Minecraft.getInstance().gameDirectory, "config/dlib");
     
-    // Structure: ModID -> Category -> OptionKey -> OptionObject
+    // Core Registry: ModID -> Category -> OptionKey -> OptionObject
     private static final LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<String, ConfigOption>>> REGISTRY = new LinkedHashMap<>();
 
-    static {
-        // --- PRE-POPULATING SPLIT INPUT TYPES & CATEGORIES ---
-        defineOption("PvpEssentials", "Visuals", "Arrow HUD", "toggle", "true", null);
-        defineOption("PvpEssentials", "Visuals", "HUD Theme", "cycle", "Dark", List.of("Dark", "Light", "Chroma"));
-        defineOption("PvpEssentials", "Gameplay", "Alert Message", "text", "Watch Out!", null);
-        defineOption("PvpEssentials", "Gameplay", "Max Alerts", "number", "5", null);
-
-        defineOption("PhantomCore", "Optimization", "Fast Rendering", "toggle", "true", null);
-        defineOption("PhantomCore", "Personalization", "Custom Prefix", "text", "[Phantom]", null);
-        defineOption("PhantomCore", "Personalization", "Max Scale", "number", "1.5", null);
-        defineOption("PhantomCore", "Personalization", "Cape Style", "cycle", "Classic", List.of("Classic", "Minimal", "None"));
-    }
-
-    private static void defineOption(String mod, String category, String key, String type, String defaultVal, List<String> choices) {
-        REGISTRY.computeIfAbsent(mod, k -> new LinkedHashMap<>())
+    /**
+     * PUBLIC API: Allows external mods to register their configuration layout dynamically.
+     */
+    public static void registerOption(String modId, String category, String key, String type, String defaultValue, List<String> choices) {
+        REGISTRY.computeIfAbsent(modId, k -> new LinkedHashMap<>())
                 .computeIfAbsent(category, k -> new LinkedHashMap<>())
-                .put(key, new ConfigOption(type, defaultVal, defaultVal, choices));
+                .put(key, new ConfigOption(type, defaultValue, defaultValue, choices));
     }
 
+    /**
+     * Reads and applies saved JSON configuration files from disk over the registered defaults.
+     * External mods should call this AFTER registering all their settings.
+     */
     public static void load() {
         if (!CONFIG_DIR.exists()) CONFIG_DIR.mkdirs();
 
         for (String mod : REGISTRY.keySet()) {
             File file = new File(CONFIG_DIR, mod.toLowerCase(Locale.ROOT) + ".json");
             if (!file.exists()) {
-                saveMod(mod);
+                saveMod(mod); // If no file exists, generate one filled with the registered defaults
                 continue;
             }
             loadSingleMod(mod, file);
@@ -55,7 +49,7 @@ public class ConfigManager {
     private static void loadSingleMod(String mod, File file) {
         try (FileReader reader = new FileReader(file)) {
             JsonObject rootJson = GSON.fromJson(reader, JsonObject.class);
-            if (rootJson == null) throw new Exception("Empty config layout");
+            if (rootJson == null) return;
 
             LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> categories = REGISTRY.get(mod);
             for (String catName : categories.keySet()) {
@@ -77,11 +71,7 @@ public class ConfigManager {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[DLib] Failed parsing config for: " + mod + ". Creating backup recovery...");
-            try {
-                File backup = new File(CONFIG_DIR, mod.toLowerCase(Locale.ROOT) + ".json.bak");
-                Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            } catch (Exception ignored) {}
+            System.err.println("[DLib] Failed parsing config for: " + mod);
             saveMod(mod); 
         }
     }
@@ -110,6 +100,39 @@ public class ConfigManager {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    // --- TYPE-SAFE RUNTIME GETTERS FOR OTHER MODS ---
+    
+    public static boolean getBoolean(String modId, String category, String key) {
+        ConfigOption opt = getOption(modId, category, key);
+        return opt != null && Boolean.parseBoolean(opt.value);
+    }
+
+    public static String getString(String modId, String category, String key) {
+        ConfigOption opt = getOption(modId, category, key);
+        return opt != null ? opt.value : "";
+    }
+
+    public static double getNumber(String modId, String category, String key) {
+        ConfigOption opt = getOption(modId, category, key);
+        if (opt == null) return 0.0;
+        try {
+            return Double.parseDouble(opt.value);
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
+    }
+
+    private static ConfigOption getOption(String modId, String category, String key) {
+        LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> modMap = REGISTRY.get(modId);
+        if (modMap != null) {
+            LinkedHashMap<String, ConfigOption> catMap = modMap.get(category);
+            if (catMap != null) {
+                return catMap.get(key);
+            }
+        }
+        return null;
     }
 
     public static void discardChanges(String mod) {

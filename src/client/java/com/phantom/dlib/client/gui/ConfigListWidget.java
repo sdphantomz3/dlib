@@ -22,7 +22,7 @@ public class ConfigListWidget extends AbstractWidget {
     private final List<AbstractWidget> dynamicUiWidgets = new ArrayList<>();
     private final List<CategoryLabel> categoryLabels = new ArrayList<>();
 
-    // --- VISUAL NOTIFICATION STATE ---
+    // --- TIMING CONFIRMATION SYSTEM CORNER STATE ---
     private String feedbackMessage = "";
     private long feedbackExpiryTime = 0L;
     private int feedbackColor = 0xFFFFFFFF;
@@ -100,40 +100,37 @@ public class ConfigListWidget extends AbstractWidget {
             }
             currentYOffset += 10; 
         }
+    }
 
-        // --- RIGHT-SIDE SIDEBAR BUTTON ACTIONS WITH MINECRAFT CONTROLS ---
-        int rightBarWidth = 85;
-        int rightBarX = this.getX() + this.width - rightBarWidth;
-        int btnX = rightBarX + 8;
-        int btnWidth = rightBarWidth - 16;
-        int startBtnY = this.getY() + 45;
+    // --- BRIDGE INTERFACE INVOKED FROM PANEL HOOKS ---
 
-        Button saveBtn = Button.builder(Component.literal("✔ Save"), (b) -> {
+    public void saveCurrentMod() {
+        if (this.currentMod != null) {
             ConfigManager.saveMod(this.currentMod);
-            this.triggerFeedback("Saved Config!", 0xFF55FF55); // Green
-        }).bounds(btnX, startBtnY, btnWidth, 20).build();
+            this.triggerFeedback("Saved to JSON!", 0xFF55FF55); // Green Text
+        }
+    }
 
-        Button discardBtn = Button.builder(Component.literal("✖ Discard"), (b) -> {
+    public void discardCurrentModChanges() {
+        if (this.currentMod != null) {
             ConfigManager.discardChanges(this.currentMod);
-            this.setMod(this.currentMod); 
-            this.triggerFeedback("Changes Undone", 0xFFFF5555); // Red
-        }).bounds(btnX, startBtnY + 26, btnWidth, 20).build();
+            this.setMod(this.currentMod); // Force re-sync
+            this.triggerFeedback("Changes Reverted", 0xFFFF5555); // Red Text
+        }
+    }
 
-        Button defaultBtn = Button.builder(Component.literal("⟲ Defaults"), (b) -> {
+    public void resetCurrentModDefaults() {
+        if (this.currentMod != null) {
             ConfigManager.resetToDefaults(this.currentMod);
-            this.setMod(this.currentMod); 
-            this.triggerFeedback("Reset Complete", 0xFFFFAA00); // Gold
-        }).bounds(btnX, startBtnY + 52, btnWidth, 20).build();
-
-        this.dynamicUiWidgets.add(saveBtn);
-        this.dynamicUiWidgets.add(discardBtn);
-        this.dynamicUiWidgets.add(defaultBtn);
+            this.setMod(this.currentMod); // Force updates
+            this.triggerFeedback("Defaults Applied", 0xFF5555FF); // Blue Text
+        }
     }
 
     private void triggerFeedback(String message, int color) {
         this.feedbackMessage = message;
         this.feedbackColor = color;
-        this.feedbackExpiryTime = Util.getMillis() + 2500; // Visible for 2.5 seconds
+        this.feedbackExpiryTime = Util.getMillis() + 2500;
     }
 
     @Override
@@ -145,32 +142,22 @@ public class ConfigListWidget extends AbstractWidget {
             return;
         }
 
-        // Render Configuration Options Layout Text
         RenderUtil.drawScaledText(graphics, "Mod Config: " + this.currentMod, 1.3f, this.getX() + 20, this.getY() + 18, 0xFFFFFFFF, 1.0f, true);
 
         for (CategoryLabel label : categoryLabels) {
             RenderUtil.drawScaledText(graphics, label.text, label.scale, label.x, label.y, label.color, 1.0f, true);
         }
 
-        // --- DRAW VISUAL SEPARATOR & SIDEBAR FLOOR PANELS ---
-        int rightBarWidth = 85;
-        int separatorX = this.getX() + this.width - rightBarWidth;
-        
-        // Draw the dark gray separator boundary line
-        graphics.fill(separatorX, this.getY(), separatorX + 1, this.getY() + this.height, 0xFF444444);
-        // Draw a translucent darker backing frame behind actions layout
-        graphics.fill(separatorX + 1, this.getY(), this.getX() + this.width, this.getY() + this.height, 0x33000000);
-
-        // Render Sub-Widgets (Fields & Buttons)
         for (AbstractWidget widget : dynamicUiWidgets) {
             widget.extractRenderState(graphics, mouseX, mouseY, partialTick);
         }
 
-        // --- RENDER CURRENT VISUAL NOTIFICATION ---
+        // --- RENDER VISUAL ACTION CONFIRMATION STATUS ---
         if (Util.getMillis() < this.feedbackExpiryTime && !this.feedbackMessage.isEmpty()) {
-            int textY = this.getY() + 125;
-            int centerX = separatorX + (rightBarWidth / 2);
-            graphics.centeredText(mc.font, this.feedbackMessage, centerX, textY, this.feedbackColor);
+            // Positioned clearly in the bottom-right workspace viewport
+            int renderX = this.getX() + this.width - 110;
+            int renderY = this.getY() + this.height - 18;
+            graphics.centeredText(mc.font, "● " + this.feedbackMessage, renderX, renderY, this.feedbackColor);
         }
     }
 
