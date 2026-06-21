@@ -225,7 +225,7 @@ public class ConfigListWidget extends AbstractWidget {
     public void saveCurrentMod() {
         if (this.currentMod != null) {
             ConfigManager.saveMod(this.currentMod);
-            this.triggerFeedback("Saved to JSON!", 0xFF55FF55);
+            this.triggerFeedback("Saved!", 0xFF55FF55);
         }
     }
 
