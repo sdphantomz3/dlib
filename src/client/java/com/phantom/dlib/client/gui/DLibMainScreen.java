@@ -40,30 +40,24 @@ public class DLibMainScreen extends Screen {
 
         int btnX = this.width - 24;
         
-        // 1. Discard Changes & Close Screen Button (Top - Red Outline)
+        // 1. Discard Changes & Close Screen Button (Red Outline)
         ControlSquareButton discardCloseBtn = new ControlSquareButton(btnX, 4, 20, 20, "✖", 0xFFFF5555, 0xFFCC0000, 0xFFFF2222, () -> {
-            if (this.configListWidget != null) {
-                this.configListWidget.discardCurrentModChanges();
-            }
+            if (this.configListWidget != null) this.configListWidget.discardCurrentModChanges();
             this.onClose();
         });
         this.controlButtons.add(discardCloseBtn);
         this.addRenderableWidget(discardCloseBtn);
         
-        // 2. Save Settings Button (Middle - Green Outline)
+        // 2. Save Settings Button (Green Outline)
         ControlSquareButton saveBtn = new ControlSquareButton(btnX, 28, 20, 20, "✔", 0xFF55FF55, 0xFF00AA00, 0xFF22FF22, () -> {
-            if (this.configListWidget != null) {
-                this.configListWidget.saveCurrentMod();
-            }
+            if (this.configListWidget != null) this.configListWidget.saveCurrentMod();
         });
         this.controlButtons.add(saveBtn);
         this.addRenderableWidget(saveBtn);
         
-        // 3. Reset to Factory Defaults Button (Bottom - Blue Outline)
+        // 3. Reset to Factory Defaults Button (Blue Outline)
         ControlSquareButton defaultBtn = new ControlSquareButton(btnX, 52, 20, 20, "⟲", 0xFF5555FF, 0xFF0000CC, 0xFF2222FF, () -> {
-            if (this.configListWidget != null) {
-                this.configListWidget.resetCurrentModDefaults();
-            }
+            if (this.configListWidget != null) this.configListWidget.resetCurrentModDefaults();
         });
         this.controlButtons.add(defaultBtn);
         this.addRenderableWidget(defaultBtn);
@@ -78,39 +72,39 @@ public class DLibMainScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
-        
         int leftPanelWidth = 140;
-        // Sidebar Separator line
         graphics.fill(leftPanelWidth, 0, leftPanelWidth + 1, this.height, 0xFF555555);
 
-        // --- CONTEXTUAL PANEL HIDING ---
-        // Only render the panel bounding frame if a mod configuration has been explicitly loaded
         if (this.configListWidget != null && this.configListWidget.getCurrentMod() != null) {
             int panelLeft = this.width - 28;
             int panelBottom = 76;
-            
-            graphics.fill(panelLeft, 0, panelLeft + 1, panelBottom, 0xFF555555); // Vertical frame border
-            graphics.fill(panelLeft, panelBottom, this.width, panelBottom + 1, 0xFF555555); // Horizontal frame floor
-            graphics.fill(panelLeft + 1, 0, this.width, panelBottom, 0x22000000); // Inner dark backing panel
+            graphics.fill(panelLeft, 0, panelLeft + 1, panelBottom, 0xFF555555);
+            graphics.fill(panelLeft, panelBottom, this.width, panelBottom + 1, 0xFF555555);
+            graphics.fill(panelLeft + 1, 0, this.width, panelBottom, 0x22000000);
         }
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        // Propagate scroll wheel ticks down to viewports
+        if (this.modListWidget != null && this.modListWidget.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+            return true;
+        }
+        if (this.configListWidget != null && this.configListWidget.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
     public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
-        // Block interaction routing to utility buttons if no mod configuration is loaded
         if (this.configListWidget != null && this.configListWidget.getCurrentMod() != null) {
             for (ControlSquareButton btn : controlButtons) {
-                if (btn.mouseClicked(event, doubleClick)) {
-                    return true;
-                }
+                if (btn.mouseClicked(event, doubleClick)) return true;
             }
         }
-        if (this.modListWidget != null && this.modListWidget.mouseClicked(event, doubleClick)) {
-            return true;
-        }
-        if (this.configListWidget != null && this.configListWidget.mouseClicked(event, doubleClick)) {
-            return true;
-        }
+        if (this.modListWidget != null && this.modListWidget.mouseClicked(event, doubleClick)) return true;
+        if (this.configListWidget != null && this.configListWidget.mouseClicked(event, doubleClick)) return true;
         return super.mouseClicked(event, doubleClick);
     }
 
@@ -123,25 +117,17 @@ public class DLibMainScreen extends Screen {
             this.onClose();
             return true;
         }
-        if (this.configListWidget != null && this.configListWidget.keyPressed(event)) {
-            return true;
-        }
-        return super.keyPressed(event);
+        return this.configListWidget != null && this.configListWidget.keyPressed(event) || super.keyPressed(event);
     }
 
     @Override
     public boolean charTyped(final CharacterEvent event) {
-        if (this.configListWidget != null && this.configListWidget.charTyped(event)) {
-            return true;
-        }
-        return super.charTyped(event);
+        return this.configListWidget != null && this.configListWidget.charTyped(event) || super.charTyped(event);
     }
 
     @Override
     public void onClose() {
-        if (this.minecraft != null) {
-            this.minecraft.gui.setScreen(this.parentScreen);
-        }
+        if (this.minecraft != null) this.minecraft.gui.setScreen(this.parentScreen);
     }
 
     private class ControlSquareButton extends AbstractWidget {
@@ -162,14 +148,8 @@ public class DLibMainScreen extends Screen {
 
         @Override
         protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-            // Completely skip rendering if no active mod is loaded
-            if (DLibMainScreen.this.configListWidget == null || DLibMainScreen.this.configListWidget.getCurrentMod() == null) {
-                return;
-            }
-
-            boolean hovered = mouseX >= this.getX() && mouseX < this.getX() + this.width 
-                    && mouseY >= this.getY() && mouseY < this.getY() + this.height;
-
+            if (DLibMainScreen.this.configListWidget == null || DLibMainScreen.this.configListWidget.getCurrentMod() == null) return;
+            boolean hovered = mouseX >= this.getX() && mouseX < this.getX() + this.width && mouseY >= this.getY() && mouseY < this.getY() + this.height;
             graphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, hovered ? this.hoverColor : this.baseColor);
             graphics.outline(this.getX(), this.getY(), this.width, this.height, this.outlineColor);
             graphics.centeredText(Minecraft.getInstance().font, this.label, this.getX() + this.width / 2, this.getY() + (this.height - 8) / 2, 0xFFFFFFFF);
@@ -177,12 +157,9 @@ public class DLibMainScreen extends Screen {
 
         @Override
         public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
-            if (DLibMainScreen.this.configListWidget == null || DLibMainScreen.this.configListWidget.getCurrentMod() == null) {
-                return false;
-            }
+            if (DLibMainScreen.this.configListWidget == null || DLibMainScreen.this.configListWidget.getCurrentMod() == null) return false;
             if (this.isActive()) {
-                double mx = event.x();
-                double my = event.y();
+                double mx = event.x(); double my = event.y();
                 if (mx >= this.getX() && mx < this.getX() + this.width && my >= this.getY() && my < this.getY() + this.height) {
                     this.playDownSound(Minecraft.getInstance().getSoundManager());
                     this.pressAction.run();

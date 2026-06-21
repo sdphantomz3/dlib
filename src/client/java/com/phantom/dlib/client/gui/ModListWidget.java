@@ -1,75 +1,117 @@
 package com.phantom.dlib.client.gui;
 
 import com.phantom.dlib.client.config.ConfigManager;
+import com.phantom.dlib.client.util.RenderUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+
 import java.util.List;
 
 public class ModListWidget extends AbstractWidget {
-    private final DLibMainScreen parentScreen;
-    private final List<String> registeredMods;
-    private int selectedIndex = -1;
+    private final DLibMainScreen parent;
+    private String activeSelectedMod = "";
+    
+    private double scrollAmount = 0;
+    private final int rowHeight = 22;
 
-    public ModListWidget(DLibMainScreen parentScreen, int x, int y, int width, int height) {
+    public ModListWidget(DLibMainScreen parent, int x, int y, int width, int height) {
         super(x, y, width, height, Component.empty());
-        this.parentScreen = parentScreen;
-        this.registeredMods = ConfigManager.getRegisteredMods();
+        this.parent = parent;
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        int viewTop = this.getY() + 45;
+        int viewBottom = this.height - 15;
+        int viewHeight = viewBottom - viewTop;
+        int totalHeight = ConfigManager.getRegisteredMods().size() * rowHeight;
+
+        if (totalHeight <= viewHeight) return false;
+
+        if (mouseX >= this.getX() && mouseX <= this.getX() + this.width && mouseY >= this.getY() && mouseY <= this.getY() + this.height) {
+            int maxScroll = totalHeight - viewHeight;
+            this.scrollAmount = Math.max(0, Math.min(this.scrollAmount - scrollY * 14, maxScroll));
+            return true;
+        }
+        return false;
     }
 
     @Override
-    protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        Minecraft mc = Minecraft.getInstance();
+    public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        RenderUtil.drawScaledText(graphics, "Registered Mods", 1.2f, this.getX() + 14, this.getY() + 18, 0xFFFFFFFF, 1.0f, true);
 
-        graphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0x55000000);
+        int viewTop = this.getY() + 45;
+        int viewBottom = this.height - 15;
+        int viewHeight = viewBottom - viewTop;
+        List<String> mods = ConfigManager.getRegisteredMods();
 
-        int itemHeight = 24;
-        for (int i = 0; i < registeredMods.size(); i++) {
-            int itemY = this.getY() + (i * itemHeight) + 8;
-            int itemWidth = this.width - 8;
-            
-            boolean isHovered = mouseX >= this.getX() + 4 && mouseX <= this.getX() + 4 + itemWidth 
-                    && mouseY >= itemY && mouseY < itemY + itemHeight - 2;
-            
-            if (i == selectedIndex) {
-                graphics.fill(this.getX() + 4, itemY, this.getX() + 4 + itemWidth, itemY + itemHeight - 2, 0x44FFFFFF);
+        for (int i = 0; i < mods.size(); i++) {
+            String modId = mods.get(i);
+            int rowTopY = viewTop + (i * rowHeight) - (int)scrollAmount;
+
+            if (rowTopY + rowHeight < viewTop || rowTopY > viewBottom) continue;
+
+            boolean isHovered = mouseX >= this.getX() + 10 && mouseX < this.getX() + this.width - 15 
+                    && mouseY >= rowTopY && mouseY < rowTopY + rowHeight;
+            boolean isSelected = modId.equals(activeSelectedMod);
+
+            if (isSelected) {
+                graphics.fill(this.getX() + 10, rowTopY, this.getX() + this.width - 15, rowTopY + rowHeight - 2, 0x44FFFFFF);
             } else if (isHovered) {
-                graphics.fill(this.getX() + 4, itemY, this.getX() + 4 + itemWidth, itemY + itemHeight - 2, 0x22FFFFFF);
+                graphics.fill(this.getX() + 10, rowTopY, this.getX() + this.width - 15, rowTopY + rowHeight - 2, 0x11FFFFFF);
             }
 
-            int borderColor = (i == selectedIndex) ? 0xFFFFFFFF : 0xFF555555; 
-            graphics.outline(this.getX() + 4, itemY, itemWidth, itemHeight - 2, borderColor);
+            int textColor = isSelected ? 0xFFFFCC00 : (isHovered ? 0xFFFFFFFF : 0xFF999999);
+            
+            // FIXED: Replaced undefined graphics.drawString with RenderUtil.drawScaledText
+            RenderUtil.drawScaledText(graphics, modId, 1.0f, this.getX() + 16, rowTopY + 5, textColor, 1.0f, true);
+        }
 
-            graphics.text(mc.font, registeredMods.get(i), this.getX() + 12, itemY + 6, 0xFFFFFFFF);
+        int totalHeight = mods.size() * rowHeight;
+        if (totalHeight > viewHeight) {
+            int scrollbarX = this.getX() + this.width - 8;
+            int thumbHeight = Math.max(12, (viewHeight * viewHeight) / totalHeight);
+            int maxScroll = totalHeight - viewHeight;
+            int thumbY = viewTop + (int)((scrollAmount / maxScroll) * (viewHeight - thumbHeight));
+
+            graphics.fill(scrollbarX, viewTop, scrollbarX + 3, viewBottom, 0x11FFFFFF);
+            graphics.fill(scrollbarX, thumbY, scrollbarX + 3, thumbY + thumbHeight, 0x66FFFFFF);
         }
     }
 
     @Override
     public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
-        if (!this.isActive()) return false;
+        double mx = event.x(); double my = event.y();
+        int viewTop = this.getY() + 45;
+        int viewBottom = this.height - 15;
+        int viewHeight = viewBottom - viewTop;
+        List<String> mods = ConfigManager.getRegisteredMods();
+        int totalHeight = mods.size() * rowHeight;
 
-        double mouseX = event.x();
-        double mouseY = event.y();
+        if (totalHeight > viewHeight && mx >= this.getX() + this.width - 12 && mx <= this.getX() + this.width && my >= viewTop && my <= viewBottom) {
+            double clickPercentage = (my - viewTop) / (double)viewHeight;
+            int maxScroll = totalHeight - viewHeight;
+            this.scrollAmount = Math.max(0, Math.min(clickPercentage * maxScroll, maxScroll));
+            return true;
+        }
 
-        if (mouseX >= this.getX() + 4 && mouseX <= this.getX() + this.width - 4) {
-            int itemHeight = 24;
-            for (int i = 0; i < registeredMods.size(); i++) {
-                int itemY = this.getY() + (i * itemHeight) + 8;
-                if (mouseY >= itemY && mouseY < itemY + itemHeight - 2) {
-                    this.selectedIndex = i;
-                    this.parentScreen.setSelectedMod(registeredMods.get(i));
-                    this.playDownSound(Minecraft.getInstance().getSoundManager());
-                    return true;
-                }
+        for (int i = 0; i < mods.size(); i++) {
+            int rowTopY = viewTop + (i * rowHeight) - (int)scrollAmount;
+            if (rowTopY + rowHeight < viewTop || rowTopY > viewBottom) continue;
+
+            if (mx >= this.getX() + 10 && mx < this.getX() + this.width - 15 && my >= rowTopY && my < rowTopY + rowHeight) {
+                this.playDownSound(Minecraft.getInstance().getSoundManager());
+                this.activeSelectedMod = mods.get(i);
+                this.parent.setSelectedMod(this.activeSelectedMod);
+                return true;
             }
         }
         return false;
     }
 
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {
-    }
+    protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {}
 }
