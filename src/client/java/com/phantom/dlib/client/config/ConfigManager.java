@@ -21,20 +21,22 @@ public class ConfigManager {
     private static final LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<String, ConfigOption>>> REGISTRY = new LinkedHashMap<>();
 
     static {
-        // --- PRE-POPULATING COMPREHENSIVE CONFIG SYSTEM TYPES ---
+        // --- PRE-POPULATING SPLIT INPUT TYPES & CATEGORIES ---
         defineOption("PvpEssentials", "Visuals", "Arrow HUD", "toggle", "true", null);
         defineOption("PvpEssentials", "Visuals", "HUD Theme", "cycle", "Dark", List.of("Dark", "Light", "Chroma"));
-        defineOption("PvpEssentials", "Gameplay", "Alert Message", "input", "Watch Out!", null);
+        defineOption("PvpEssentials", "Gameplay", "Alert Message", "text", "Watch Out!", null);
+        defineOption("PvpEssentials", "Gameplay", "Max Alerts", "number", "5", null);
 
         defineOption("PhantomCore", "Optimization", "Fast Rendering", "toggle", "true", null);
-        defineOption("PhantomCore", "Personalization", "Custom Prefix", "input", "[Phantom]", null);
+        defineOption("PhantomCore", "Personalization", "Custom Prefix", "text", "[Phantom]", null);
+        defineOption("PhantomCore", "Personalization", "Max Scale", "number", "1.5", null);
         defineOption("PhantomCore", "Personalization", "Cape Style", "cycle", "Classic", List.of("Classic", "Minimal", "None"));
     }
 
     private static void defineOption(String mod, String category, String key, String type, String defaultVal, List<String> choices) {
         REGISTRY.computeIfAbsent(mod, k -> new LinkedHashMap<>())
                 .computeIfAbsent(category, k -> new LinkedHashMap<>())
-                .put(key, new ConfigOption(type, defaultVal, choices));
+                .put(key, new ConfigOption(type, defaultVal, defaultVal, choices));
     }
 
     public static void load() {
@@ -46,40 +48,41 @@ public class ConfigManager {
                 saveMod(mod);
                 continue;
             }
+            loadSingleMod(mod, file);
+        }
+    }
 
-            // EDGE CASE: Handle corrupted or malformed text syntax inside JSON configurations cleanly
-            try (FileReader reader = new FileReader(file)) {
-                JsonObject rootJson = GSON.fromJson(reader, JsonObject.class);
-                if (rootJson == null) throw new Exception("Empty configuration layout definition context");
+    private static void loadSingleMod(String mod, File file) {
+        try (FileReader reader = new FileReader(file)) {
+            JsonObject rootJson = GSON.fromJson(reader, JsonObject.class);
+            if (rootJson == null) throw new Exception("Empty config layout");
 
-                LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> categories = REGISTRY.get(mod);
-                for (String catName : categories.keySet()) {
-                    if (rootJson.has(catName) && rootJson.get(catName).isJsonObject()) {
-                        JsonObject catJson = rootJson.getAsJsonObject(catName);
-                        LinkedHashMap<String, ConfigOption> options = categories.get(catName);
+            LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> categories = REGISTRY.get(mod);
+            for (String catName : categories.keySet()) {
+                if (rootJson.has(catName) && rootJson.get(catName).isJsonObject()) {
+                    JsonObject catJson = rootJson.getAsJsonObject(catName);
+                    LinkedHashMap<String, ConfigOption> options = categories.get(catName);
 
-                        for (String key : options.keySet()) {
-                            // EDGE CASE: Structural drift restoration - pull valid data or preserve default fallback values
-                            if (catJson.has(key)) {
-                                JsonElement valueElem = catJson.get(key);
-                                ConfigOption option = options.get(key);
-                                if (option.type.equals("toggle") && valueElem.isJsonPrimitive()) {
-                                    option.value = String.valueOf(valueElem.getAsBoolean());
-                                } else if (valueElem.isJsonPrimitive()) {
-                                    option.value = valueElem.getAsString();
-                                }
+                    for (String key : options.keySet()) {
+                        if (catJson.has(key)) {
+                            JsonElement valueElem = catJson.get(key);
+                            ConfigOption option = options.get(key);
+                            if (option.type.equals("toggle") && valueElem.isJsonPrimitive()) {
+                                option.value = String.valueOf(valueElem.getAsBoolean());
+                            } else if (valueElem.isJsonPrimitive()) {
+                                option.value = valueElem.getAsString();
                             }
                         }
                     }
                 }
-            } catch (Exception e) {
-                System.err.println("[DLib] Failed parsing configuration file context for: " + mod + ". Creating backup recovery file target...");
-                try {
-                    File backup = new File(CONFIG_DIR, mod.toLowerCase(Locale.ROOT) + ".json.bak");
-                    Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                } catch (Exception ignored) {}
-                saveMod(mod); // Re-serialize defaults over the broken operational file layout frame
             }
+        } catch (Exception e) {
+            System.err.println("[DLib] Failed parsing config for: " + mod + ". Creating backup recovery...");
+            try {
+                File backup = new File(CONFIG_DIR, mod.toLowerCase(Locale.ROOT) + ".json.bak");
+                Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception ignored) {}
+            saveMod(mod); 
         }
     }
 
@@ -109,17 +112,39 @@ public class ConfigManager {
         }
     }
 
+    public static void discardChanges(String mod) {
+        File file = new File(CONFIG_DIR, mod.toLowerCase(Locale.ROOT) + ".json");
+        if (!file.exists()) {
+            resetToDefaults(mod);
+        } else {
+            loadSingleMod(mod, file);
+        }
+    }
+
+    public static void resetToDefaults(String mod) {
+        LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> categories = REGISTRY.get(mod);
+        if (categories != null) {
+            for (LinkedHashMap<String, ConfigOption> options : categories.values()) {
+                for (ConfigOption opt : options.values()) {
+                    opt.value = opt.defaultValue;
+                }
+            }
+        }
+    }
+
     public static List<String> getRegisteredMods() { return new ArrayList<>(REGISTRY.keySet()); }
     public static LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> getStructureForMod(String mod) { return REGISTRY.getOrDefault(mod, new LinkedHashMap<>()); }
 
     public static class ConfigOption {
         public final String type; 
         public String value;
-        public final List<String> choices; // Present if type equals "cycle"
+        public final String defaultValue;
+        public final List<String> choices; 
 
-        public ConfigOption(String type, String value, List<String> choices) {
+        public ConfigOption(String type, String value, String defaultValue, List<String> choices) {
             this.type = type;
             this.value = value;
+            this.defaultValue = defaultValue;
             this.choices = choices;
         }
     }
