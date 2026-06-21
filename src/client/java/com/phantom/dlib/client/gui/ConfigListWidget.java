@@ -4,9 +4,9 @@ import com.phantom.dlib.client.config.ConfigManager;
 import com.phantom.dlib.client.util.RenderUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -14,6 +14,7 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 public class ConfigListWidget extends AbstractWidget {
     private String currentMod = null;
@@ -47,7 +48,6 @@ public class ConfigListWidget extends AbstractWidget {
                     Button btn = Button.builder(Component.literal(key + ": " + (Boolean.parseBoolean(option.value) ? "ON" : "OFF")), (b) -> {
                         boolean state = !Boolean.parseBoolean(option.value);
                         option.value = String.valueOf(state);
-                        ConfigManager.saveMod(this.currentMod);
                         b.setMessage(Component.literal(key + ": " + (state ? "ON" : "OFF")));
                     }).bounds(this.getX() + 25, currentYOffset, 180, 20).build();
                     this.dynamicUiWidgets.add(btn);
@@ -57,26 +57,68 @@ public class ConfigListWidget extends AbstractWidget {
                         int index = option.choices.indexOf(option.value);
                         int nextIndex = (index + 1) % option.choices.size();
                         option.value = option.choices.get(nextIndex);
-                        ConfigManager.saveMod(this.currentMod);
                         b.setMessage(Component.literal(key + ": " + option.value));
                     }).bounds(this.getX() + 25, currentYOffset, 180, 20).build();
                     this.dynamicUiWidgets.add(btn);
 
-                } else if (option.type.equals("input")) {
+                } else if (option.type.equals("text") || option.type.equals("number")) {
                     this.categoryLabels.add(new CategoryLabel(key + ":", this.getX() + 25, currentYOffset + 4, 0xFFBBBBBB, 1.0f));
                     
-                    EditBox inputField = new EditBox(mc.font, this.getX() + 110, currentYOffset, 120, 18, Component.empty());
+                    final EditBox inputField = new EditBox(mc.font, this.getX() + 110, currentYOffset, 120, 18, Component.empty());
                     inputField.setValue(option.value);
-                    inputField.setResponder((newValue) -> {
-                        option.value = newValue;
-                        ConfigManager.saveMod(this.currentMod);
+                    
+                    // Self-contained validation state to replace missing setFilter method natively
+                    inputField.setResponder(new Consumer<String>() {
+                        private String lastValidValue = option.value;
+                        private boolean isReverting = false;
+
+                        @Override
+                        public void accept(String newValue) {
+                            if (isReverting) return;
+
+                            if (option.type.equals("number")) {
+                                // Allows floating points, negatives, and partial structures during typing (e.g., "-", ".", "-.")
+                                if (!newValue.isEmpty() && !newValue.equals("-") && !newValue.equals(".") && !newValue.equals("-.") && !newValue.matches("^-?\\d*\\.?\\d*$")) {
+                                    isReverting = true;
+                                    inputField.setValue(lastValidValue); // Kick illegal characters out
+                                    isReverting = false;
+                                    return;
+                                }
+                            }
+                            
+                            lastValidValue = newValue;
+                            option.value = newValue;
+                        }
                     });
+
                     this.dynamicUiWidgets.add(inputField);
                 }
                 currentYOffset += 24;
             }
             currentYOffset += 10; 
         }
+
+        // Action Toolbar Setup
+        int actionButtonY = this.getY() + this.height - 28;
+        int btnWidth = 65;
+
+        Button saveBtn = Button.builder(Component.literal("Save"), (b) -> {
+            ConfigManager.saveMod(this.currentMod);
+        }).bounds(this.getX() + 20, actionButtonY, btnWidth, 20).build();
+
+        Button discardBtn = Button.builder(Component.literal("Discard"), (b) -> {
+            ConfigManager.discardChanges(this.currentMod);
+            this.setMod(this.currentMod); 
+        }).bounds(this.getX() + 90, actionButtonY, btnWidth, 20).build();
+
+        Button defaultBtn = Button.builder(Component.literal("Defaults"), (b) -> {
+            ConfigManager.resetToDefaults(this.currentMod);
+            this.setMod(this.currentMod); 
+        }).bounds(this.getX() + 160, actionButtonY, btnWidth, 20).build();
+
+        this.dynamicUiWidgets.add(saveBtn);
+        this.dynamicUiWidgets.add(discardBtn);
+        this.dynamicUiWidgets.add(defaultBtn);
     }
 
     @Override
@@ -114,7 +156,6 @@ public class ConfigListWidget extends AbstractWidget {
         return false;
     }
 
-    // --- WRAPPED KEY EVENT PIPELINE ---
     public boolean keyPressed(final KeyEvent event) {
         for (AbstractWidget widget : dynamicUiWidgets) {
             if (widget instanceof EditBox && widget.isFocused()) {
@@ -124,7 +165,6 @@ public class ConfigListWidget extends AbstractWidget {
         return false;
     }
 
-    // --- WRAPPED CHARACTER EVENT PIPELINE ---
     public boolean charTyped(final CharacterEvent event) {
         for (AbstractWidget widget : dynamicUiWidgets) {
             if (widget instanceof EditBox && widget.isFocused()) {

@@ -3,10 +3,10 @@ package com.phantom.dlib.client.gui;
 import com.phantom.dlib.client.config.ConfigManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
@@ -34,7 +34,6 @@ public class DLibMainScreen extends Screen {
         this.configListWidget = new ConfigListWidget(leftPanelWidth, 0, this.width - leftPanelWidth, this.height);
         this.addRenderableWidget(this.configListWidget);
 
-        // Track the close button reference explicitly
         this.redCrossButton = new RedCrossButton(this.width - 24, 4, 20, 20, this::onClose);
         this.addRenderableWidget(this.redCrossButton);
     }
@@ -52,7 +51,6 @@ public class DLibMainScreen extends Screen {
         graphics.fill(leftPanelWidth, 0, leftPanelWidth + 1, this.height, 0xFF555555);
     }
 
-    // --- OBJECT KEYBOARD INPUT FIX ---
     @Override
     public boolean keyPressed(final KeyEvent event) {
         if (event.isEscape()) { 
@@ -65,7 +63,6 @@ public class DLibMainScreen extends Screen {
         return super.keyPressed(event);
     }
 
-    // --- OBJECT CHARACTER TYPING FIX ---
     @Override
     public boolean charTyped(final CharacterEvent event) {
         if (this.configListWidget != null && this.configListWidget.charTyped(event)) {
@@ -76,7 +73,6 @@ public class DLibMainScreen extends Screen {
 
     @Override
     public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
-        // to bypass right-side panel bounding box spatial selection occlusion
         if (this.redCrossButton != null && this.redCrossButton.mouseClicked(event, doubleClick)) {
             return true;
         }
