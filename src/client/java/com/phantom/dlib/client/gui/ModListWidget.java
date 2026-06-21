@@ -41,7 +41,7 @@ public class ModListWidget extends AbstractWidget {
 
     @Override
     public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        RenderUtil.drawScaledText(graphics, "Registered Mods", 1.2f, this.getX() + 14, this.getY() + 18, 0xFFFFFFFF, 1.0f, true);
+        // RenderUtil.drawScaledText(graphics, "Registered Mods", 1.2f, this.getX() + 14, this.getY() + 18, 0xFFFFFFFF, 1.0f, true);
 
         int viewTop = this.getY() + 45;
         int viewBottom = this.height - 15;
