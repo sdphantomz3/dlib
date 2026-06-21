@@ -31,6 +31,10 @@ public class ConfigListWidget extends AbstractWidget {
         super(x, y, width, height, Component.empty());
     }
 
+    public String getCurrentMod() {
+        return this.currentMod;
+    }
+    
     public void setMod(String modName) {
         this.currentMod = modName;
         this.dynamicUiWidgets.clear();

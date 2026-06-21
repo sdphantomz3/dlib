@@ -18,8 +18,6 @@ public class DLibMainScreen extends Screen {
     private final Screen parentScreen;
     private ModListWidget modListWidget;
     private ConfigListWidget configListWidget;
-    
-    // Explicit reference tracking list to ensure precise input event delivery
     private final List<ControlSquareButton> controlButtons = new ArrayList<>();
 
     public DLibMainScreen(Screen parentScreen) {
@@ -85,21 +83,26 @@ public class DLibMainScreen extends Screen {
         // Sidebar Separator line
         graphics.fill(leftPanelWidth, 0, leftPanelWidth + 1, this.height, 0xFF555555);
 
-        // --- COMPACT RIGHT SIDE PANEL SEPARATOR BOUNDS ---
-        int panelLeft = this.width - 28;
-        int panelBottom = 76; // Bounds wrap perfectly around the 3 stacked buttons
-        
-        graphics.fill(panelLeft, 0, panelLeft + 1, panelBottom, 0xFF555555); // Vertical line
-        graphics.fill(panelLeft, panelBottom, this.width, panelBottom + 1, 0xFF555555); // Horizontal line
-        graphics.fill(panelLeft + 1, 0, this.width, panelBottom, 0x22000000); // Tinted control panel backing
+        // --- CONTEXTUAL PANEL HIDING ---
+        // Only render the panel bounding frame if a mod configuration has been explicitly loaded
+        if (this.configListWidget != null && this.configListWidget.getCurrentMod() != null) {
+            int panelLeft = this.width - 28;
+            int panelBottom = 76;
+            
+            graphics.fill(panelLeft, 0, panelLeft + 1, panelBottom, 0xFF555555); // Vertical frame border
+            graphics.fill(panelLeft, panelBottom, this.width, panelBottom + 1, 0xFF555555); // Horizontal frame floor
+            graphics.fill(panelLeft + 1, 0, this.width, panelBottom, 0x22000000); // Inner dark backing panel
+        }
     }
 
     @Override
     public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
-        // Explicitly pass mouse events to control panel components first to bypass broken routing hooks
-        for (ControlSquareButton btn : controlButtons) {
-            if (btn.mouseClicked(event, doubleClick)) {
-                return true;
+        // Block interaction routing to utility buttons if no mod configuration is loaded
+        if (this.configListWidget != null && this.configListWidget.getCurrentMod() != null) {
+            for (ControlSquareButton btn : controlButtons) {
+                if (btn.mouseClicked(event, doubleClick)) {
+                    return true;
+                }
             }
         }
         if (this.modListWidget != null && this.modListWidget.mouseClicked(event, doubleClick)) {
@@ -114,8 +117,7 @@ public class DLibMainScreen extends Screen {
     @Override
     public boolean keyPressed(final KeyEvent event) {
         if (event.isEscape()) { 
-            // Escape key also triggers a clear/discard sequence automatically before closing
-            if (this.configListWidget != null) {
+            if (this.configListWidget != null && this.configListWidget.getCurrentMod() != null) {
                 this.configListWidget.discardCurrentModChanges();
             }
             this.onClose();
@@ -142,8 +144,7 @@ public class DLibMainScreen extends Screen {
         }
     }
 
-    // --- STRUCTURAL CONTROL SQUARE WIDGET COMPONENT WITH EXPLICIT BOUNDING CHECKS ---
-    private static class ControlSquareButton extends AbstractWidget {
+    private class ControlSquareButton extends AbstractWidget {
         private final String label;
         private final int outlineColor;
         private final int baseColor;
@@ -161,6 +162,11 @@ public class DLibMainScreen extends Screen {
 
         @Override
         protected void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+            // Completely skip rendering if no active mod is loaded
+            if (DLibMainScreen.this.configListWidget == null || DLibMainScreen.this.configListWidget.getCurrentMod() == null) {
+                return;
+            }
+
             boolean hovered = mouseX >= this.getX() && mouseX < this.getX() + this.width 
                     && mouseY >= this.getY() && mouseY < this.getY() + this.height;
 
@@ -171,10 +177,12 @@ public class DLibMainScreen extends Screen {
 
         @Override
         public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
+            if (DLibMainScreen.this.configListWidget == null || DLibMainScreen.this.configListWidget.getCurrentMod() == null) {
+                return false;
+            }
             if (this.isActive()) {
                 double mx = event.x();
                 double my = event.y();
-                // Direct positional geometry verification completely bypassing vanilla isMouseOver mapping problems
                 if (mx >= this.getX() && mx < this.getX() + this.width && my >= this.getY() && my < this.getY() + this.height) {
                     this.playDownSound(Minecraft.getInstance().getSoundManager());
                     this.pressAction.run();
