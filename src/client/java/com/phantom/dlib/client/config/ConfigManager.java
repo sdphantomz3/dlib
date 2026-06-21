@@ -3,101 +3,124 @@ package com.phantom.dlib.client.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonElement;
 import net.minecraft.client.Minecraft;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 public class ConfigManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final File CONFIG_DIR = new File(Minecraft.getInstance().gameDirectory, "config/dlib");
-    private static final LinkedHashMap<String, Map<String, Boolean>> CONFIG_REGISTRY = new LinkedHashMap<>();
+    
+    // Structure: ModID -> Category -> OptionKey -> OptionObject
+    private static final LinkedHashMap<String, LinkedHashMap<String, LinkedHashMap<String, ConfigOption>>> REGISTRY = new LinkedHashMap<>();
 
-    // --- REAL MOD OPTIONS DATA CONFIGURATION ---
     static {
-        registerDefaultOptions("PvpEssentials", List.of("Arrow HUD Enabled", "Show Durability Warning", "Clean Crosshair"));
-        registerDefaultOptions("PhantomCore", List.of("Enhanced Performance", "Show FPS Counter", "Custom Capes Enabled"));
-        registerDefaultOptions("DLib-Engine", List.of("Debug Logging", "Optimize Atlas Textures", "Matrix Transform Cache"));
-        registerDefaultOptions("ExampleMod", List.of("Toggle Box A", "Toggle Box B"));
+        // --- PRE-POPULATING COMPREHENSIVE CONFIG SYSTEM TYPES ---
+        defineOption("PvpEssentials", "Visuals", "Arrow HUD", "toggle", "true", null);
+        defineOption("PvpEssentials", "Visuals", "HUD Theme", "cycle", "Dark", List.of("Dark", "Light", "Chroma"));
+        defineOption("PvpEssentials", "Gameplay", "Alert Message", "input", "Watch Out!", null);
+
+        defineOption("PhantomCore", "Optimization", "Fast Rendering", "toggle", "true", null);
+        defineOption("PhantomCore", "Personalization", "Custom Prefix", "input", "[Phantom]", null);
+        defineOption("PhantomCore", "Personalization", "Cape Style", "cycle", "Classic", List.of("Classic", "Minimal", "None"));
     }
 
-    private static void registerDefaultOptions(String modName, List<String> optionKeys) {
-        Map<String, Boolean> optionsMap = new LinkedHashMap<>();
-        for (String key : optionKeys) {
-            optionsMap.put(key, true); // Default all options to true
-        }
-        CONFIG_REGISTRY.put(modName, optionsMap);
+    private static void defineOption(String mod, String category, String key, String type, String defaultVal, List<String> choices) {
+        REGISTRY.computeIfAbsent(mod, k -> new LinkedHashMap<>())
+                .computeIfAbsent(category, k -> new LinkedHashMap<>())
+                .put(key, new ConfigOption(type, defaultVal, choices));
     }
 
-    /**
-     * Scans and loads mod configuration json files from the storage directory.
-     */
     public static void load() {
-        if (!CONFIG_DIR.exists()) {
-            CONFIG_DIR.mkdirs();
-        }
+        if (!CONFIG_DIR.exists()) CONFIG_DIR.mkdirs();
 
-        for (String mod : CONFIG_REGISTRY.keySet()) {
+        for (String mod : REGISTRY.keySet()) {
             File file = new File(CONFIG_DIR, mod.toLowerCase(Locale.ROOT) + ".json");
-            if (file.exists()) {
-                try (FileReader reader = new FileReader(file)) {
-                    JsonObject json = GSON.fromJson(reader, JsonObject.class);
-                    if (json != null) {
-                        Map<String, Boolean> optionsMap = CONFIG_REGISTRY.get(mod);
-                        for (String key : optionsMap.keySet()) {
-                            if (json.has(key)) {
-                                optionsMap.put(key, json.get(key).getAsBoolean());
+            if (!file.exists()) {
+                saveMod(mod);
+                continue;
+            }
+
+            // EDGE CASE: Handle corrupted or malformed text syntax inside JSON configurations cleanly
+            try (FileReader reader = new FileReader(file)) {
+                JsonObject rootJson = GSON.fromJson(reader, JsonObject.class);
+                if (rootJson == null) throw new Exception("Empty configuration layout definition context");
+
+                LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> categories = REGISTRY.get(mod);
+                for (String catName : categories.keySet()) {
+                    if (rootJson.has(catName) && rootJson.get(catName).isJsonObject()) {
+                        JsonObject catJson = rootJson.getAsJsonObject(catName);
+                        LinkedHashMap<String, ConfigOption> options = categories.get(catName);
+
+                        for (String key : options.keySet()) {
+                            // EDGE CASE: Structural drift restoration - pull valid data or preserve default fallback values
+                            if (catJson.has(key)) {
+                                JsonElement valueElem = catJson.get(key);
+                                ConfigOption option = options.get(key);
+                                if (option.type.equals("toggle") && valueElem.isJsonPrimitive()) {
+                                    option.value = String.valueOf(valueElem.getAsBoolean());
+                                } else if (valueElem.isJsonPrimitive()) {
+                                    option.value = valueElem.getAsString();
+                                }
                             }
                         }
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
                 }
-            } else {
-                saveMod(mod); // Generate default file if it doesn't exist
+            } catch (Exception e) {
+                System.err.println("[DLib] Failed parsing configuration file context for: " + mod + ". Creating backup recovery file target...");
+                try {
+                    File backup = new File(CONFIG_DIR, mod.toLowerCase(Locale.ROOT) + ".json.bak");
+                    Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                } catch (Exception ignored) {}
+                saveMod(mod); // Re-serialize defaults over the broken operational file layout frame
             }
         }
     }
 
-    /**
-     * Serializes a specific mod's configuration layout back to its respective JSON file.
-     */
     public static void saveMod(String mod) {
-        if (!CONFIG_DIR.exists()) {
-            CONFIG_DIR.mkdirs();
-        }
-
+        if (!CONFIG_DIR.exists()) CONFIG_DIR.mkdirs();
         File file = new File(CONFIG_DIR, mod.toLowerCase(Locale.ROOT) + ".json");
+
         try (FileWriter writer = new FileWriter(file)) {
-            JsonObject json = new JsonObject();
-            Map<String, Boolean> optionsMap = CONFIG_REGISTRY.get(mod);
-            for (Map.Entry<String, Boolean> entry : optionsMap.entrySet()) {
-                json.addProperty(entry.getKey(), entry.getValue());
+            JsonObject rootJson = new JsonObject();
+            LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> categories = REGISTRY.get(mod);
+
+            for (Map.Entry<String, LinkedHashMap<String, ConfigOption>> catEntry : categories.entrySet()) {
+                JsonObject catJson = new JsonObject();
+                for (Map.Entry<String, ConfigOption> optEntry : catEntry.getValue().entrySet()) {
+                    ConfigOption opt = optEntry.getValue();
+                    if (opt.type.equals("toggle")) {
+                        catJson.addProperty(optEntry.getKey(), Boolean.parseBoolean(opt.value));
+                    } else {
+                        catJson.addProperty(optEntry.getKey(), opt.value);
+                    }
+                }
+                rootJson.add(catEntry.getKey(), catJson);
             }
-            GSON.toJson(json, writer);
+            GSON.toJson(rootJson, writer);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static List<String> getRegisteredMods() {
-        return new ArrayList<>(CONFIG_REGISTRY.keySet());
-    }
+    public static List<String> getRegisteredMods() { return new ArrayList<>(REGISTRY.keySet()); }
+    public static LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> getStructureForMod(String mod) { return REGISTRY.getOrDefault(mod, new LinkedHashMap<>()); }
 
-    public static Map<String, Boolean> getOptionsForMod(String mod) {
-        return CONFIG_REGISTRY.getOrDefault(mod, Collections.emptyMap());
-    }
+    public static class ConfigOption {
+        public final String type; 
+        public String value;
+        public final List<String> choices; // Present if type equals "cycle"
 
-    public static boolean getBoolean(String mod, String key) {
-        return CONFIG_REGISTRY.getOrDefault(mod, Collections.emptyMap()).getOrDefault(key, false);
-    }
-
-    public static void setBoolean(String mod, String key, boolean value) {
-        if (CONFIG_REGISTRY.containsKey(mod) && CONFIG_REGISTRY.get(mod).containsKey(key)) {
-            CONFIG_REGISTRY.get(mod).put(key, value);
-            saveMod(mod); // Save immediately upon configuration value updates
+        public ConfigOption(String type, String value, List<String> choices) {
+            this.type = type;
+            this.value = value;
+            this.choices = choices;
         }
     }
 }
