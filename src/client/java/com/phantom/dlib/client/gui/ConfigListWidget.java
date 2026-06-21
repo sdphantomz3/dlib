@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Util;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -20,6 +21,11 @@ public class ConfigListWidget extends AbstractWidget {
     private String currentMod = null;
     private final List<AbstractWidget> dynamicUiWidgets = new ArrayList<>();
     private final List<CategoryLabel> categoryLabels = new ArrayList<>();
+
+    // --- VISUAL NOTIFICATION STATE ---
+    private String feedbackMessage = "";
+    private long feedbackExpiryTime = 0L;
+    private int feedbackColor = 0xFFFFFFFF;
 
     public ConfigListWidget(int x, int y, int width, int height) {
         super(x, y, width, height, Component.empty());
@@ -67,7 +73,6 @@ public class ConfigListWidget extends AbstractWidget {
                     final EditBox inputField = new EditBox(mc.font, this.getX() + 110, currentYOffset, 120, 18, Component.empty());
                     inputField.setValue(option.value);
                     
-                    // Self-contained validation state to replace missing setFilter method natively
                     inputField.setResponder(new Consumer<String>() {
                         private String lastValidValue = option.value;
                         private boolean isReverting = false;
@@ -77,15 +82,13 @@ public class ConfigListWidget extends AbstractWidget {
                             if (isReverting) return;
 
                             if (option.type.equals("number")) {
-                                // Allows floating points, negatives, and partial structures during typing (e.g., "-", ".", "-.")
                                 if (!newValue.isEmpty() && !newValue.equals("-") && !newValue.equals(".") && !newValue.equals("-.") && !newValue.matches("^-?\\d*\\.?\\d*$")) {
                                     isReverting = true;
-                                    inputField.setValue(lastValidValue); // Kick illegal characters out
+                                    inputField.setValue(lastValidValue);
                                     isReverting = false;
                                     return;
                                 }
                             }
-                            
                             lastValidValue = newValue;
                             option.value = newValue;
                         }
@@ -98,27 +101,39 @@ public class ConfigListWidget extends AbstractWidget {
             currentYOffset += 10; 
         }
 
-        // Action Toolbar Setup
-        int actionButtonY = this.getY() + this.height - 28;
-        int btnWidth = 65;
+        // --- RIGHT-SIDE SIDEBAR BUTTON ACTIONS WITH MINECRAFT CONTROLS ---
+        int rightBarWidth = 85;
+        int rightBarX = this.getX() + this.width - rightBarWidth;
+        int btnX = rightBarX + 8;
+        int btnWidth = rightBarWidth - 16;
+        int startBtnY = this.getY() + 45;
 
-        Button saveBtn = Button.builder(Component.literal("Save"), (b) -> {
+        Button saveBtn = Button.builder(Component.literal("✔ Save"), (b) -> {
             ConfigManager.saveMod(this.currentMod);
-        }).bounds(this.getX() + 20, actionButtonY, btnWidth, 20).build();
+            this.triggerFeedback("Saved Config!", 0xFF55FF55); // Green
+        }).bounds(btnX, startBtnY, btnWidth, 20).build();
 
-        Button discardBtn = Button.builder(Component.literal("Discard"), (b) -> {
+        Button discardBtn = Button.builder(Component.literal("✖ Discard"), (b) -> {
             ConfigManager.discardChanges(this.currentMod);
             this.setMod(this.currentMod); 
-        }).bounds(this.getX() + 90, actionButtonY, btnWidth, 20).build();
+            this.triggerFeedback("Changes Undone", 0xFFFF5555); // Red
+        }).bounds(btnX, startBtnY + 26, btnWidth, 20).build();
 
-        Button defaultBtn = Button.builder(Component.literal("Defaults"), (b) -> {
+        Button defaultBtn = Button.builder(Component.literal("⟲ Defaults"), (b) -> {
             ConfigManager.resetToDefaults(this.currentMod);
             this.setMod(this.currentMod); 
-        }).bounds(this.getX() + 160, actionButtonY, btnWidth, 20).build();
+            this.triggerFeedback("Reset Complete", 0xFFFFAA00); // Gold
+        }).bounds(btnX, startBtnY + 52, btnWidth, 20).build();
 
         this.dynamicUiWidgets.add(saveBtn);
         this.dynamicUiWidgets.add(discardBtn);
         this.dynamicUiWidgets.add(defaultBtn);
+    }
+
+    private void triggerFeedback(String message, int color) {
+        this.feedbackMessage = message;
+        this.feedbackColor = color;
+        this.feedbackExpiryTime = Util.getMillis() + 2500; // Visible for 2.5 seconds
     }
 
     @Override
@@ -130,14 +145,32 @@ public class ConfigListWidget extends AbstractWidget {
             return;
         }
 
+        // Render Configuration Options Layout Text
         RenderUtil.drawScaledText(graphics, "Mod Config: " + this.currentMod, 1.3f, this.getX() + 20, this.getY() + 18, 0xFFFFFFFF, 1.0f, true);
 
         for (CategoryLabel label : categoryLabels) {
             RenderUtil.drawScaledText(graphics, label.text, label.scale, label.x, label.y, label.color, 1.0f, true);
         }
 
+        // --- DRAW VISUAL SEPARATOR & SIDEBAR FLOOR PANELS ---
+        int rightBarWidth = 85;
+        int separatorX = this.getX() + this.width - rightBarWidth;
+        
+        // Draw the dark gray separator boundary line
+        graphics.fill(separatorX, this.getY(), separatorX + 1, this.getY() + this.height, 0xFF444444);
+        // Draw a translucent darker backing frame behind actions layout
+        graphics.fill(separatorX + 1, this.getY(), this.getX() + this.width, this.getY() + this.height, 0x33000000);
+
+        // Render Sub-Widgets (Fields & Buttons)
         for (AbstractWidget widget : dynamicUiWidgets) {
             widget.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        }
+
+        // --- RENDER CURRENT VISUAL NOTIFICATION ---
+        if (Util.getMillis() < this.feedbackExpiryTime && !this.feedbackMessage.isEmpty()) {
+            int textY = this.getY() + 125;
+            int centerX = separatorX + (rightBarWidth / 2);
+            graphics.centeredText(mc.font, this.feedbackMessage, centerX, textY, this.feedbackColor);
         }
     }
 
