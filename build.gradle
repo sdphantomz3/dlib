@@ -74,6 +74,10 @@ publishing {
 	publications {
 		create("mavenJava", MavenPublication) {
 			from components.java
+
+            groupId = project.group
+            artifactId = "dlib"
+            version = project.version
 		}
 	}
 
@@ -83,5 +87,14 @@ publishing {
 		// Notice: This block does NOT have the same function as the block in the top level.
 		// The repositories here will be used for publishing your artifact, not for
 		// retrieving dependencies.
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/sdphantomz3/dlib")
+
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_USERNAME")
+                password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
 	}
 }
