@@ -1,6 +1,6 @@
 {
 	"required": true,
-	"package": "com.phantom.dlib.client.mixin",
+	"package": "com.drypted.dlib.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"PauseScreenMixin"

@@ -15,10 +15,10 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.phantom.dlib.DLib"
+			"com.drypted.dlib.DLib"
 		],
 		"client": [
-			"com.phantom.dlib.client.DLibClient"
+			"com.drypted.dlib.client.DLibClient"
 		]
 	},
 	"mixins": [

@@ -1,4 +1,4 @@
-package com.phantom.dlib;
+package com.drypted;
 
 import net.fabricmc.api.ModInitializer;
 
