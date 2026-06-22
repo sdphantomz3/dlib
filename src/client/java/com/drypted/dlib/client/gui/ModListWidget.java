@@ -1,7 +1,7 @@
-package com.phantom.dlib.client.gui;
+package com.drypted.dlib.client.gui;
 
-import com.phantom.dlib.client.config.ConfigManager;
-import com.phantom.dlib.client.util.RenderUtil;
+import com.drypted.dlib.client.config.ConfigManager;
+import com.drypted.dlib.client.util.RenderUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;

@@ -1,4 +1,4 @@
-package com.phantom.dlib.client;
+package com.drypted.dlib.client;
 
 import net.fabricmc.api.ClientModInitializer;
 
@@ -7,7 +7,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.phantom.dlib.client.config.ConfigManager;
+import com.drypted.dlib.client.config.ConfigManager;
 
 public class DLibClient implements ClientModInitializer {
     public static final String MOD_ID = "dlib";

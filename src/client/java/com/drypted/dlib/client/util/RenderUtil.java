@@ -1,4 +1,4 @@
-package com.phantom.dlib.client.util;
+package com.drypted.dlib.client.util;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;

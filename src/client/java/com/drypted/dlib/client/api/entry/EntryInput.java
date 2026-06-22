@@ -1,4 +1,4 @@
-package com.phantom.dlib.client.api.entry;
+package com.drypted.dlib.client.api.entry;
 
 public class EntryInput extends ConfigEntry {
     private String value;

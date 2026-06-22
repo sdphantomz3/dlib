@@ -1,4 +1,4 @@
-package com.drypted;
+package com.drypted.dlib;
 
 import net.fabricmc.api.ModInitializer;
 

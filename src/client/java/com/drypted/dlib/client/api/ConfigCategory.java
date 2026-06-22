@@ -1,6 +1,6 @@
-package com.phantom.dlib.client.api;
+package com.drypted.dlib.client.api;
 
-import com.phantom.dlib.client.api.entry.ConfigEntry;
+import com.drypted.dlib.client.api.entry.ConfigEntry;
 import java.util.ArrayList;
 import java.util.List;
 

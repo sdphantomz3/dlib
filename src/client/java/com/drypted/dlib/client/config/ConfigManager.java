@@ -1,4 +1,4 @@
-package com.phantom.dlib.client.config;
+package com.drypted.dlib.client.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

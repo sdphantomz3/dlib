@@ -1,4 +1,4 @@
-package com.phantom.dlib.client.mixin;
+package com.drypted.dlib.client.mixin;
 
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.phantom.dlib.client.gui.DLibMainScreen;
+import com.drypted.dlib.client.gui.DLibMainScreen;
 
 @Mixin(PauseScreen.class)
 public class PauseScreenMixin extends Screen {

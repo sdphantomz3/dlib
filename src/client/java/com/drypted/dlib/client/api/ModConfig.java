@@ -1,4 +1,4 @@
-package com.phantom.dlib.client.api;
+package com.drypted.dlib.client.api;
 
 import java.util.ArrayList;
 import java.util.List;

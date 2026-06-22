@@ -1,4 +1,4 @@
-package com.phantom.dlib.client.api.entry;
+package com.drypted.dlib.client.api.entry;
 
 public class EntryToggle extends ConfigEntry {
     private boolean value;
