@@ -24,7 +24,7 @@ public class ModListWidget extends AbstractWidget {
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int viewTop = this.getY() + 45;
+        int viewTop = this.getY() + 15;
         int viewBottom = this.height - 15;
         int viewHeight = viewBottom - viewTop;
         int totalHeight = ConfigManager.getRegisteredMods().size() * rowHeight;
@@ -43,10 +43,8 @@ public class ModListWidget extends AbstractWidget {
     public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         // RenderUtil.drawScaledText(graphics, "Registered Mods", 1.2f, this.getX() + 14, this.getY() + 18, 0xFFFFFFFF, 1.0f, true);
 
-        int padding = 15;
-
-        int viewTop = this.getY() + padding;
-        int viewBottom = this.height - padding;
+        int viewTop = this.getY() + 15;
+        int viewBottom = this.height - 15;
         int viewHeight = viewBottom - viewTop;
         List<String> mods = ConfigManager.getRegisteredMods();
 
@@ -87,7 +85,7 @@ public class ModListWidget extends AbstractWidget {
     @Override
     public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
         double mx = event.x(); double my = event.y();
-        int viewTop = this.getY() + 45;
+        int viewTop = this.getY() + 15;
         int viewBottom = this.height - 15;
         int viewHeight = viewBottom - viewTop;
         List<String> mods = ConfigManager.getRegisteredMods();
