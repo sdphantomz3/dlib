@@ -1,9 +1,11 @@
-# DLib
+![banner](https://cdn.modrinth.com/data/cached_images/e7a4607f4708290340eca82e345ece311399d99f_0.webp)
 
-## Setup
+**DLib** is a Minecraft library mod, which I plan to use in all of my mods (some of which include: (i) PVP Essentials (ii) Lifesteal, and many more)
 
-For setup instructions, please see the [Fabric Documentation page](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up) related to the IDE that you are using.
+## **Features**
+- -- v1.0.2 --
+- A easy to use config system
 
-## License
 
-This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.
+## **Usage**
+The documentation for this mod is not yet available.
