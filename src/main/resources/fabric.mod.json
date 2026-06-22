@@ -3,13 +3,12 @@
 	"id": "dlib",
 	"version": "${version}",
 	"name": "dlib",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "A library for all of my mods.",
 	"authors": [
-		"Me!"
+		"Drypted"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"sources": "https://github.com/sdphantomz3/dlib"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/dlib/icon.png",
