@@ -1,12 +1,12 @@
 package com.drypted.dlib.client.mixin;
 
-import net.minecraft.client.gui.screens.PauseScreen;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.WidgetSprites;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.drypted.dlib.DLib;
 import com.drypted.dlib.client.gui.DLibMainScreen;
+import com.drypted.dlib.client.util.RenderUtil;
 
 @Mixin(PauseScreen.class)
 public class PauseScreenMixin extends Screen {
@@ -26,56 +27,60 @@ public class PauseScreenMixin extends Screen {
     private void DLib$addConfigButton(CallbackInfo ci) {
         if (this.minecraft == null || this.minecraft.player == null) return;
 
-        // 1. Load the gear assets textures
+        // Gear icon sprites
         WidgetSprites gearSprites = new WidgetSprites(
             Identifier.fromNamespaceAndPath(DLib.MOD_ID, "config"),
             Identifier.fromNamespaceAndPath(DLib.MOD_ID, "config-highlighted")
         );
 
-        AbstractWidget targetButton = null;
-        boolean isSingleplayer = this.minecraft.hasSingleplayerServer();
+        int iconSize = 20;
+        int gap = 4;
+        int margin = 10;
 
-        // 2. Identify target button label depending on world type environment
-        String targetLabel = isSingleplayer 
-            ? Component.translatable("menu.multiplayerOptions.button").getString()
-            : Component.translatable("menu.options").getString();
+        String labelText = "Drypted Mod Config";
+        float scale = 1.0f;              // adjust as needed
+        int color = 0xFFFFFF;            // white
+        float alpha = 1.0f;
+        boolean shadow = true;
 
-        // 3. Scan generated grid layout children to extract actual calculated placement
-        for (var element : this.children()) {
-            if (element instanceof AbstractWidget widget) {
-                if (widget.getMessage().getString().equals(targetLabel)) {
-                    targetButton = widget;
-                    break;
-                }
-            }
-        }
+        // Measure text (unscaled)
+        int textWidth = this.minecraft.font.width(labelText);
+        int totalWidth = iconSize + gap + (int)(textWidth * scale);
 
-        // 4. Perform localized layout compression adjustments
-        if (targetButton != null) {
-            int originalX = targetButton.getX();
-            int originalY = targetButton.getY();
+        // Bottom left
+        int iconX = margin;
+        int iconY = this.height - iconSize - margin;
 
-            if (isSingleplayer) {
-                // Shrink standard right-hand button (98 -> 74)
-                targetButton.setWidth(74);
-                
-                // Math: start at original x position + new 74px width + 4px spacing gap
-                int gearX = originalX + 74 + 4;
-                
-                this.addRenderableWidget(new ImageButton(gearX, originalY, 20, 20, gearSprites, (button) -> {
-                    this.minecraft.gui.setScreen(new DLibMainScreen(this));
-                }));
-            } else {
-                // Shrink standard wide button row layout (204 -> 180)
-                targetButton.setWidth(180);
-                
-                // Math: start at original x position + new 180px width + 4px spacing gap
-                int gearX = originalX + 180 + 4;
-                
-                this.addRenderableWidget(new ImageButton(gearX, originalY, 20, 20, gearSprites, (button) -> {
-                    this.minecraft.gui.setScreen(new DLibMainScreen(this));
-                }));
-            }
-        }
+        // Vertically centre text with the icon
+        int textX = iconX + iconSize + gap;
+        int textY = iconY + (int)((iconSize - this.minecraft.font.lineHeight * scale) / 2);
+
+        // Create the clickable gear button
+        ImageButton configButton = new ImageButton(
+            iconX, iconY,
+            iconSize, iconSize,
+            gearSprites,
+            button -> this.minecraft.gui.setScreen(new DLibMainScreen(this))
+        );
+
+        // Add the button as a widget
+        this.addRenderableWidget(configButton);
+
+        // Add the label as a Renderable – no widget overhead
+        this.addRenderableOnly((GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) -> {
+            // If GuiGraphicsExtractor is a wrapper, adapt accordingly.
+            // For example, if it's a subclass, you might cast:
+            GuiGraphicsExtractor extractor = (GuiGraphicsExtractor) guiGraphics;
+            RenderUtil.drawScaledText(
+                extractor,
+                labelText,
+                scale,
+                textX,
+                textY,
+                color,
+                alpha,
+                shadow
+            );
+        });
     }
 }
