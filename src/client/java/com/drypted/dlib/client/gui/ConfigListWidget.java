@@ -58,7 +58,7 @@ public class ConfigListWidget extends AbstractWidget {
                 options.add(new OptionInfo(optEntry.getKey(), optEntry.getValue()));
             }
             categoryInfos.add(new CategoryInfo(catName, options));
-            categoryExpanded.put(catName, true); // start expanded
+            categoryExpanded.put(catName, false); // start expanded
         }
 
         buildRows();
@@ -74,7 +74,7 @@ public class ConfigListWidget extends AbstractWidget {
             configRows.add(new ConfigRow(cat.name, null, null, true, runningRelativeY, 20));
             runningRelativeY += 20;
 
-            if (categoryExpanded.getOrDefault(cat.name, true)) {
+            if (categoryExpanded.getOrDefault(cat.name, false)) {
                 for (OptionInfo optInfo : cat.options) {
                     final String key = optInfo.key;
                     final ConfigManager.ConfigOption option = optInfo.option;
@@ -142,7 +142,7 @@ public class ConfigListWidget extends AbstractWidget {
     }
 
     private void toggleCategory(String catName) {
-        boolean current = categoryExpanded.getOrDefault(catName, true);
+        boolean current = categoryExpanded.getOrDefault(catName, false);
         categoryExpanded.put(catName, !current);
         buildRows();
     }
