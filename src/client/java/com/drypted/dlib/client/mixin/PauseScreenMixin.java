@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.drypted.dlib.DLib;
 import com.drypted.dlib.client.gui.DLibMainScreen;
 
 @Mixin(PauseScreen.class)
@@ -22,13 +23,13 @@ public class PauseScreenMixin extends Screen {
     }
 
     @Inject(method = "init", at = @At("RETURN"))
-    private void dlib$addConfigButton(CallbackInfo ci) {
+    private void DLib$addConfigButton(CallbackInfo ci) {
         if (this.minecraft == null || this.minecraft.player == null) return;
 
         // 1. Load the gear assets textures
         WidgetSprites gearSprites = new WidgetSprites(
-            Identifier.fromNamespaceAndPath("dlib", "config"),
-            Identifier.fromNamespaceAndPath("dlib", "config-highlighted")
+            Identifier.fromNamespaceAndPath(DLib.MOD_ID, "config"),
+            Identifier.fromNamespaceAndPath(DLib.MOD_ID, "config-highlighted")
         );
 
         AbstractWidget targetButton = null;

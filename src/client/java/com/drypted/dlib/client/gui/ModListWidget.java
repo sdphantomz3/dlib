@@ -66,8 +66,9 @@ public class ModListWidget extends AbstractWidget {
 
             int textColor = isSelected ? 0xFFFFCC00 : (isHovered ? 0xFFFFFFFF : 0xFF999999);
             
-            // FIXED: Replaced undefined graphics.drawString with RenderUtil.drawScaledText
-            RenderUtil.drawScaledText(graphics, modId, 1.0f, this.getX() + 16, rowTopY + 5, textColor, 1.0f, true);
+            RenderUtil.drawScaledText(graphics,
+            ConfigManager.getModDisplayName(modId),
+            1.0f, this.getX() + 16, rowTopY + 5, textColor, 1.0f, true);
         }
 
         int totalHeight = mods.size() * rowHeight;

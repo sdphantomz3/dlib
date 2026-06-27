@@ -128,7 +128,9 @@ public class ConfigListWidget extends AbstractWidget {
             return;
         }
 
-        RenderUtil.drawScaledText(graphics, "Mod Config: " + this.currentMod, 1.3f, this.getX() + 20, this.getY() + 18, 0xFFFFFFFF, 1.0f, true);
+        String displayName = ConfigManager.getModDisplayName(currentMod);
+
+        RenderUtil.drawScaledText(graphics, "Mod Config: " + displayName, 1.3f, this.getX() + 20, this.getY() + 18, 0xFFFFFFFF, 1.0f, true);
 
         int viewTop = this.getY() + 45;
         int viewBottom = this.height - 15;

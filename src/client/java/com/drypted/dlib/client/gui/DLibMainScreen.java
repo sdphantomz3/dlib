@@ -21,7 +21,7 @@ public class DLibMainScreen extends Screen {
     private final List<ControlSquareButton> controlButtons = new ArrayList<>();
 
     public DLibMainScreen(Screen parentScreen) {
-        super(Component.literal("DLib Config Manager"));
+        super(Component.literal("EasyConfig Config Manager"));
         this.parentScreen = parentScreen;
     }
 

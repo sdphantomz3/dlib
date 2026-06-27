@@ -2,8 +2,6 @@ package com.drypted.dlib.client.util;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.world.item.ItemStack;
-import org.jspecify.annotations.NonNull;
 
 public class RenderUtil {
 
