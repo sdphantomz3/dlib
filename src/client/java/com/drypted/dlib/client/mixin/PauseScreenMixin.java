@@ -37,7 +37,7 @@ public class PauseScreenMixin extends Screen {
         int gap = 4;
         int margin = 10;
 
-        String labelText = "Drypted Mod Config";
+        String labelText = "Drypted Mod's Config";
         float scale = 1.0f;              // adjust as needed
         int color = 0xFFFFFF;            // white
         float alpha = 1.0f;
