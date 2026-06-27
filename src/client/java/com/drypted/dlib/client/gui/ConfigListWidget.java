@@ -26,15 +26,41 @@ public class ConfigListWidget extends AbstractWidget {
     private double scrollAmount = 0;
     private int totalContentHeight = 0;
 
-    private String feedbackMessage = "";
-    private long feedbackExpiryTime = 0L;
-    private int feedbackColor = 0xFFFFFFFF;
+    // ── Toast notification ───────────────────────────────────────────────────
+    // The toast slides in from the right edge, stays, then slides back out.
+    //
+    // Timeline (all in ms, configurable):
+    //   0                     → starts sliding in
+    //   TOAST_SLIDE_MS        → fully visible, hold begins
+    //   TOAST_SLIDE_MS + TOAST_HOLD_MS          → starts sliding back out
+    //   TOAST_SLIDE_MS*2 + TOAST_HOLD_MS        → fully hidden (animation done)
+    //
+    private static final long TOAST_SLIDE_MS = 300L;  // slide in / slide out duration
+    private static final long TOAST_HOLD_MS  = 1800L; // how long it stays visible
+
+    // Toast visual constants
+    private static final int TOAST_H        = 22;
+    private static final int TOAST_PAD_X    = 10;
+    private static final int TOAST_PAD_Y    = 6;
+    private static final int TOAST_MARGIN   = 10; // gap from right + bottom edges
+
+    // MC panel-style colours (matches the dark inventory panel look)
+    private static final int TOAST_BG       = 0xFF2D2D2D;
+    private static final int TOAST_BORDER_L = 0xFF555555; // light edge (top+left)
+    private static final int TOAST_BORDER_D = 0xFF111111; // dark edge (bottom+right)
+
+    private String  toastMessage  = "";
+    private int     toastColor    = 0xFFFFFFFF;
+    private long    toastStartMs  = 0L;          // Util.getMillis() when triggerFeedback was called
+    private boolean toastActive   = false;
 
     public ConfigListWidget(int x, int y, int width, int height) {
         super(x, y, width, height, Component.empty());
     }
 
     public String getCurrentMod() { return this.currentMod; }
+
+    // ── Mod loading ──────────────────────────────────────────────────────────
 
     public void setMod(String modName) {
         this.currentMod = modName;
@@ -58,7 +84,7 @@ public class ConfigListWidget extends AbstractWidget {
                 options.add(new OptionInfo(optEntry.getKey(), optEntry.getValue()));
             }
             categoryInfos.add(new CategoryInfo(catName, options));
-            categoryExpanded.put(catName, false); // start expanded
+            categoryExpanded.put(catName, false);
         }
 
         buildRows();
@@ -70,7 +96,6 @@ public class ConfigListWidget extends AbstractWidget {
         Minecraft mc = Minecraft.getInstance();
 
         for (CategoryInfo cat : categoryInfos) {
-            // Category header row
             configRows.add(new ConfigRow(cat.name, null, null, true, runningRelativeY, 20));
             runningRelativeY += 20;
 
@@ -131,10 +156,8 @@ public class ConfigListWidget extends AbstractWidget {
                     configRows.add(new ConfigRow(null, key, inputWidget, false, runningRelativeY, 24));
                     runningRelativeY += 24;
                 }
-                // extra spacing after expanded category
                 runningRelativeY += 8;
             } else {
-                // collapsed: still add a small gap after header
                 runningRelativeY += 4;
             }
         }
@@ -147,14 +170,14 @@ public class ConfigListWidget extends AbstractWidget {
         buildRows();
     }
 
+    // ── Scroll ───────────────────────────────────────────────────────────────
+
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (this.currentMod == null) return false;
         int viewTop = this.getY() + 15;
         int viewBottom = this.height - 15;
         int viewHeight = viewBottom - viewTop;
-
         if (this.totalContentHeight <= viewHeight) return false;
-
         if (mouseX >= this.getX() && mouseX <= this.getX() + this.width &&
                 mouseY >= this.getY() && mouseY <= this.getY() + this.height) {
             int maxScroll = this.totalContentHeight - viewHeight;
@@ -163,6 +186,8 @@ public class ConfigListWidget extends AbstractWidget {
         }
         return false;
     }
+
+    // ── Render ───────────────────────────────────────────────────────────────
 
     @Override
     public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
@@ -178,7 +203,7 @@ public class ConfigListWidget extends AbstractWidget {
         RenderUtil.drawScaledText(graphics, "Mod Config: " + displayName,
                 1.3f, this.getX() + 20, this.getY() + 18, 0xFFFFFFFF, 1.0f, true);
 
-        int viewTop = this.getY() + 45;
+        int viewTop    = this.getY() + 45;
         int viewBottom = this.height - 15;
         int viewHeight = viewBottom - viewTop;
 
@@ -186,57 +211,41 @@ public class ConfigListWidget extends AbstractWidget {
             int rowScreenY = viewTop + row.relativeY - (int) scrollAmount;
             if (rowScreenY + row.height < viewTop || rowScreenY > viewBottom) continue;
 
-                        if (row.isCategory) {
+            if (row.isCategory) {
                 boolean expanded = categoryExpanded.getOrDefault(row.categoryName, true);
-;
-                
-                // 1. Hover Detection
                 boolean isHovered = mouseX >= this.getX() + 10 && mouseX <= this.getX() + this.width - 10 &&
                                     mouseY >= rowScreenY && mouseY <= rowScreenY + row.height;
-                
-                // 2. Hover Background Highlight
                 if (isHovered) {
                     graphics.fill(this.getX() + 10, rowScreenY, this.getX() + this.width - 10, rowScreenY + row.height, 0x33FFFFFF);
                 }
-                
-                // Change color if hovered
-                int color = isHovered ? 0xFFFFFF55 : 0xFFFFCC00; // Brighter yellow on hover
+                int color = isHovered ? 0xFFFFFF55 : 0xFFFFCC00;
                 int size = 9;
                 int tx = this.getX() + 22;
-                int ty = rowScreenY + (20 - size) / 2;  // Adjusted to perfectly center with 1.1f scaled text
-                
+                int ty = rowScreenY + (20 - size) / 2;
                 if (expanded) {
-                    // ▼ Down‑pointing triangle
                     for (int i = 0; i < size; i++) {
                         int w = size - i;
                         int offset = i / 2;
                         graphics.fill(tx + offset, ty + i, tx + offset + w, ty + i + 1, color);
                     }
                 } else {
-                    // ► Right‑pointing triangle
                     for (int c = 0; c < size; c++) {
                         int h = size - c;
                         int sy = ty + c / 2;
                         graphics.fill(tx + c, sy, tx + c + 1, sy + h, color);
                     }
                 }
-
-                // Draw category name text (offset slightly more to clear the 9px triangle)
-RenderUtil.drawScaledText(graphics, row.categoryName,
-        1.1f, this.getX() + 40, rowScreenY + 5, color, 1.0f, true);
+                RenderUtil.drawScaledText(graphics, row.categoryName,
+                        1.1f, this.getX() + 40, rowScreenY + 5, color, 1.0f, true);
             } else {
-                // ... rest of your else block for options ... else {
                 int widgetX = this.getX() + this.width - 170;
                 int maxLabelWidth = (widgetX - (this.getX() + 20)) - 10;
-
                 String cleanLabelText = row.optionKey + ":";
                 if (mc.font.width(cleanLabelText) > maxLabelWidth) {
                     cleanLabelText = mc.font.plainSubstrByWidth(cleanLabelText, maxLabelWidth - 8) + "...";
                 }
-
                 RenderUtil.drawScaledText(graphics, cleanLabelText,
                         1.0f, this.getX() + 20, rowScreenY + 5, 0xFFBBBBBB, 1.0f, true);
-
                 if (row.widget != null) {
                     row.widget.setY(rowScreenY + (row.height - row.widget.getHeight()) / 2);
                     row.widget.extractRenderState(graphics, mouseX, mouseY, partialTick);
@@ -251,30 +260,100 @@ RenderUtil.drawScaledText(graphics, row.categoryName,
             int thumbHeight = Math.max(12, (viewHeight * viewHeight) / totalContentHeight);
             int maxScroll = totalContentHeight - viewHeight;
             int thumbY = viewTop + (int) ((scrollAmount / maxScroll) * (viewHeight - thumbHeight));
-
             graphics.fill(scrollbarX, viewTop, scrollbarX + trackWidth, viewBottom, 0x22FFFFFF);
             graphics.fill(scrollbarX, thumbY, scrollbarX + trackWidth, thumbY + thumbHeight, 0x88FFFFFF);
         }
 
-        // Feedback
-        if (Util.getMillis() < this.feedbackExpiryTime && !this.feedbackMessage.isEmpty()) {
-            RenderUtil.drawScaledText(graphics, "● " + this.feedbackMessage,
-                    1.0f, this.getX() + this.width - 110, this.getY() + this.height - 18,
-                    this.feedbackColor, 1.0f, true);
-        }
+        // Toast notification
+        drawToast(graphics);
     }
+
+    // ── Toast ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Draws the sliding toast.
+     *
+     * Slide offset logic:
+     *   phase 0 (0..SLIDE_MS)               → sliding in:  offset = toastWidth * (1 - t)
+     *   phase 1 (SLIDE_MS..SLIDE_MS+HOLD_MS) → fully shown: offset = 0
+     *   phase 2 (..SLIDE_MS*2+HOLD_MS)       → sliding out: offset = toastWidth * t
+     *   after that                            → hidden, toastActive = false
+     */
+    private void drawToast(GuiGraphicsExtractor g) {
+        if (!toastActive) return;
+
+        long now     = Util.getMillis();
+        long elapsed = now - toastStartMs;
+        long total   = TOAST_SLIDE_MS * 2 + TOAST_HOLD_MS;
+
+        if (elapsed >= total) {
+            toastActive = false;
+            return;
+        }
+
+        Minecraft mc = Minecraft.getInstance();
+        int textW  = mc.font.width(toastMessage);
+        int toastW = textW + TOAST_PAD_X * 2;
+
+        // Compute horizontal slide offset (pixels hidden to the right)
+        float slideOffset;
+        if (elapsed < TOAST_SLIDE_MS) {
+            // Sliding in: ease-out (1 - t^2 reversed → start fast, slow down)
+            float t = (float) elapsed / TOAST_SLIDE_MS;
+            slideOffset = toastW * (1f - easeOut(t));
+        } else if (elapsed < TOAST_SLIDE_MS + TOAST_HOLD_MS) {
+            slideOffset = 0f;
+        } else {
+            // Sliding out
+            float t = (float) (elapsed - TOAST_SLIDE_MS - TOAST_HOLD_MS) / TOAST_SLIDE_MS;
+            slideOffset = toastW * easeIn(t);
+        }
+
+        // Position: bottom-right of the right pane
+        int rightEdge = this.getX() + this.width - TOAST_MARGIN;
+        int toastX    = (int) (rightEdge - toastW + slideOffset);
+        int toastY    = this.getY() + this.height - TOAST_MARGIN - TOAST_H;
+
+        // Draw MC-panel style background
+        // Dark fill
+        g.fill(toastX + 1, toastY + 1, toastX + toastW - 1, toastY + TOAST_H - 1, TOAST_BG);
+        // Light top + left edges (1px)
+        g.fill(toastX,           toastY,           toastX + toastW,     toastY + 1,     TOAST_BORDER_L); // top
+        g.fill(toastX,           toastY + 1,       toastX + 1,          toastY + TOAST_H - 1, TOAST_BORDER_L); // left
+        // Dark bottom + right edges (1px)
+        g.fill(toastX,           toastY + TOAST_H - 1, toastX + toastW, toastY + TOAST_H, TOAST_BORDER_D); // bottom
+        g.fill(toastX + toastW - 1, toastY + 1,   toastX + toastW,    toastY + TOAST_H - 1, TOAST_BORDER_D); // right
+        // Corner pixels — cut to a slight rounded look by darkening them
+        g.fill(toastX,           toastY,           toastX + 1,          toastY + 1,     TOAST_BORDER_D); // top-left
+        g.fill(toastX + toastW - 1, toastY,        toastX + toastW,     toastY + 1,     TOAST_BORDER_D); // top-right
+        g.fill(toastX,           toastY + TOAST_H - 1, toastX + 1,      toastY + TOAST_H, TOAST_BORDER_D); // bot-left
+        g.fill(toastX + toastW - 1, toastY + TOAST_H - 1, toastX + toastW, toastY + TOAST_H, TOAST_BORDER_D); // bot-right
+
+        // Accent left bar (1px wide, inset 1 from left edge, colour matches message type)
+        g.fill(toastX + 1, toastY + 1, toastX + 3, toastY + TOAST_H - 1, toastColor);
+
+        // Text centred vertically, offset right of accent bar
+        int textY = toastY + (TOAST_H - 8) / 2;
+        RenderUtil.drawScaledText(g, toastMessage, 1.0f,
+                toastX + TOAST_PAD_X + 2, textY, 0xFFEEEEEE, 1.0f, true);
+    }
+
+    /** Quadratic ease-out: starts fast, ends slow. t in [0,1] → [0,1]. */
+    private static float easeOut(float t) { return 1f - (1f - t) * (1f - t); }
+
+    /** Quadratic ease-in: starts slow, ends fast. t in [0,1] → [0,1]. */
+    private static float easeIn(float t)  { return t * t; }
+
+    // ── Input ────────────────────────────────────────────────────────────────
 
     @Override
     public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
         if (this.currentMod == null) return false;
-
-        double mx = event.x();
-        double my = event.y();
-        int viewTop = this.getY() + 45;
+        double mx = event.x(), my = event.y();
+        int viewTop    = this.getY() + 45;
         int viewBottom = this.height - 15;
         int viewHeight = viewBottom - viewTop;
 
-        // Click on scrollbar track
         if (totalContentHeight > viewHeight &&
                 mx >= this.getX() + this.width - 10 && mx <= this.getX() + this.width &&
                 my >= viewTop && my <= viewBottom) {
@@ -284,7 +363,6 @@ RenderUtil.drawScaledText(graphics, row.categoryName,
             return true;
         }
 
-        // Check category header clicks first (so they don't interfere with widgets)
         for (ConfigRow row : configRows) {
             if (!row.isCategory) continue;
             int rowScreenY = viewTop + row.relativeY - (int) scrollAmount;
@@ -297,12 +375,10 @@ RenderUtil.drawScaledText(graphics, row.categoryName,
             }
         }
 
-        // Then delegate to widgets
         for (ConfigRow row : configRows) {
             if (row.isCategory || row.widget == null) continue;
             int rowScreenY = viewTop + row.relativeY - (int) scrollAmount;
             if (rowScreenY + row.height < viewTop || rowScreenY > viewBottom) continue;
-
             if (row.widget.mouseClicked(event, doubleClick)) {
                 if (row.widget instanceof EditBox) {
                     for (ConfigRow r : configRows) {
@@ -335,10 +411,12 @@ RenderUtil.drawScaledText(graphics, row.categoryName,
         return false;
     }
 
+    // ── Actions ──────────────────────────────────────────────────────────────
+
     public void saveCurrentMod() {
         if (this.currentMod != null) {
             ConfigManager.saveMod(this.currentMod);
-            this.triggerFeedback("Saved!", 0xFF55FF55);
+            triggerFeedback("Saved!", 0xFF55FF55);
         }
     }
 
@@ -346,7 +424,7 @@ RenderUtil.drawScaledText(graphics, row.categoryName,
         if (this.currentMod != null) {
             ConfigManager.discardChanges(this.currentMod);
             this.setMod(this.currentMod);
-            this.triggerFeedback("Changes Reverted", 0xFFFF5555);
+            triggerFeedback("Changes Reverted", 0xFFFF5555);
         }
     }
 
@@ -354,55 +432,44 @@ RenderUtil.drawScaledText(graphics, row.categoryName,
         if (this.currentMod != null) {
             ConfigManager.resetToDefaults(this.currentMod);
             this.setMod(this.currentMod);
-            this.triggerFeedback("Defaults Applied", 0xFF5555FF);
+            triggerFeedback("Defaults Applied", 0xFF5599FF);
         }
     }
 
     private void triggerFeedback(String message, int color) {
-        this.feedbackMessage = message;
-        this.feedbackColor = color;
-        this.feedbackExpiryTime = Util.getMillis() + 2500;
+        this.toastMessage  = message;
+        this.toastColor    = color;
+        this.toastStartMs  = Util.getMillis();
+        this.toastActive   = true;
     }
 
     @Override
     protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {}
 
-    // ----- Helper data classes -----
+    // ── Data classes ─────────────────────────────────────────────────────────
+
     private static class CategoryInfo {
         final String name;
         final List<OptionInfo> options;
-
-        CategoryInfo(String name, List<OptionInfo> options) {
-            this.name = name;
-            this.options = options;
-        }
+        CategoryInfo(String name, List<OptionInfo> options) { this.name = name; this.options = options; }
     }
 
     private static class OptionInfo {
         final String key;
         final ConfigManager.ConfigOption option;
-
-        OptionInfo(String key, ConfigManager.ConfigOption option) {
-            this.key = key;
-            this.option = option;
-        }
+        OptionInfo(String key, ConfigManager.ConfigOption option) { this.key = key; this.option = option; }
     }
 
     private static class ConfigRow {
-        final String categoryName;   // only for category rows
-        final String optionKey;      // only for option rows
+        final String categoryName;
+        final String optionKey;
         final AbstractWidget widget;
         final boolean isCategory;
         final int relativeY;
         final int height;
-
         ConfigRow(String catName, String key, AbstractWidget widget, boolean isCategory, int relativeY, int height) {
-            this.categoryName = catName;
-            this.optionKey = key;
-            this.widget = widget;
-            this.isCategory = isCategory;
-            this.relativeY = relativeY;
-            this.height = height;
+            this.categoryName = catName; this.optionKey = key; this.widget = widget;
+            this.isCategory = isCategory; this.relativeY = relativeY; this.height = height;
         }
     }
 }

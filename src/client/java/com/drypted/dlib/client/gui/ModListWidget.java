@@ -7,7 +7,9 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 import java.util.List;
 
@@ -18,36 +20,60 @@ public class ModListWidget extends AbstractWidget {
     private double scrollAmount = 0;
     private final int rowHeight = 22;
 
-    // ── Action bar ───────────────────────────────────────────────────────────
-    // 4px margin above the separator line, then 3 buttons of BTN_H height,
-    // then 4px margin below — total strip height accounts for all of that.
-    private static final int BAR_MARGIN   = 4;  // gap between list and separator
-    private static final int BTN_H        = 18; // button height (matches MC default)
-    private static final int BTN_PADDING  = 3;  // horizontal gap between buttons
+    // ── Action bar geometry ──────────────────────────────────────────────────
+    // Matches the horizontal inset of the mod list rows: left+10, right-15.
+    private static final int ROW_INSET_LEFT  = 10;
+    private static final int ROW_INSET_RIGHT = 15;
+
+    private static final int BAR_MARGIN      = 4;   // gap above separator and around buttons
+    private static final int BTN_H           = 20;  // height matches vanilla MC buttons
+    private static final int BTN_GAP         = 3;   // gap between the three buttons
     private static final int ACTION_BAR_HEIGHT = BAR_MARGIN + 1 + BAR_MARGIN + BTN_H + BAR_MARGIN;
-    // breakdown: margin | separator | margin | button | bottom margin
 
-    // Minecraft-style button colours (matches vanilla button palette)
-    private static final int MC_BTN_FACE        = 0xFF5A5A5A; // normal face
-    private static final int MC_BTN_FACE_HOV    = 0xFF7A7A7A; // hovered face
-    private static final int MC_BTN_FACE_DIS    = 0xFF3A3A3A; // disabled face
-    private static final int MC_BTN_LIGHT       = 0xFFBFBFBF; // top+left highlight
-    private static final int MC_BTN_LIGHT_HOV   = 0xFFDFDFDF;
-    private static final int MC_BTN_SHADOW      = 0xFF1A1A1A; // bottom+right shadow
-    private static final int MC_BTN_SHADOW_DIS  = 0xFF2A2A2A;
+    // Vanilla MC button sprites
+    private static final Identifier SPR_BTN     = Identifier.withDefaultNamespace("gui/sprites/widget/button");
+    private static final Identifier SPR_BTN_HOV = Identifier.withDefaultNamespace("gui/sprites/widget/button_highlighted");
+    private static final Identifier SPR_BTN_DIS = Identifier.withDefaultNamespace("gui/sprites/widget/button_disabled");
 
-    // Icon pixel colours (only used when active)
-    private static final int ICO_SAVE    = 0xFF55FF55; // green  — checkmark
-    private static final int ICO_RESET   = 0xFF5599FF; // blue   — reset arrows
-    private static final int ICO_DISCARD = 0xFFFF5555; // red    — X
-    private static final int ICO_DIS     = 0xFF555555; // greyed out
-
-    // Separator
     private static final int CLR_SEPARATOR = 0xFF555555;
+
+    // Icon colours
+    private static final int ICO_SAVE    = 0xFF55FF55;
+    private static final int ICO_RESET   = 0xFF5599FF;
+    private static final int ICO_DISCARD = 0xFFFF5555;
+    private static final int ICO_DIS     = 0xFF666666;
 
     public ModListWidget(DLibMainScreen parent, int x, int y, int width, int height) {
         super(x, y, width, height, Component.empty());
         this.parent = parent;
+    }
+
+    // ── Geometry helpers ─────────────────────────────────────────────────────
+
+    /** Bottom of the scrollable list area (= where the action bar begins). */
+    private int listBottom() {
+        return this.getY() + this.height - ACTION_BAR_HEIGHT;
+    }
+
+    /**
+     * Left x, right x, and width for the button strip.
+     * Aligns with the mod-row hit area: getX()+ROW_INSET_LEFT … getX()+width-ROW_INSET_RIGHT.
+     */
+    private int btnAreaLeft()  { return this.getX() + ROW_INSET_LEFT; }
+    private int btnAreaRight() { return this.getX() + this.width - ROW_INSET_RIGHT; }
+    private int btnAreaWidth() { return btnAreaRight() - btnAreaLeft(); }
+
+    /** Width of each of the three buttons given the total available area. */
+    private int btnW() {
+        return (btnAreaWidth() - BTN_GAP * 2) / 3;
+    }
+
+    private int btnX(int idx) {
+        return btnAreaLeft() + idx * (btnW() + BTN_GAP);
+    }
+
+    private int btnY() {
+        return listBottom() + BAR_MARGIN + 1 + BAR_MARGIN;
     }
 
     // ── Scroll ───────────────────────────────────────────────────────────────
@@ -60,16 +86,10 @@ public class ModListWidget extends AbstractWidget {
         if (totalH <= viewHeight) return false;
         if (mouseX >= this.getX() && mouseX <= this.getX() + this.width
                 && mouseY >= this.getY() && mouseY <= viewBottom) {
-            int maxScroll = totalH - viewHeight;
-            this.scrollAmount = Math.max(0, Math.min(this.scrollAmount - scrollY * 14, maxScroll));
+            this.scrollAmount = Math.max(0, Math.min(this.scrollAmount - scrollY * 14, totalH - viewHeight));
             return true;
         }
         return false;
-    }
-
-    /** Y coordinate where the mod list ends (= where the action-bar region begins). */
-    private int listBottom() {
-        return this.getY() + this.height - ACTION_BAR_HEIGHT;
     }
 
     // ── Render ───────────────────────────────────────────────────────────────
@@ -79,8 +99,6 @@ public class ModListWidget extends AbstractWidget {
         drawModList(g, mx, my);
         drawActionBar(g, mx, my);
     }
-
-    // -- Mod list -------------------------------------------------------------
 
     private void drawModList(GuiGraphicsExtractor g, int mx, int my) {
         int viewTop    = this.getY() + 15;
@@ -93,16 +111,17 @@ public class ModListWidget extends AbstractWidget {
             int rowTopY   = viewTop + (i * rowHeight) - (int) scrollAmount;
             if (rowTopY + rowHeight < viewTop || rowTopY > viewBottom) continue;
 
-            boolean hov = mx >= this.getX() + 10 && mx < this.getX() + this.width - 15
+            boolean hov = mx >= this.getX() + ROW_INSET_LEFT
+                       && mx <  this.getX() + this.width - ROW_INSET_RIGHT
                        && my >= rowTopY && my < rowTopY + rowHeight;
             boolean sel = modId.equals(activeSelectedMod);
 
-            if (sel)      g.fill(this.getX() + 10, rowTopY, this.getX() + this.width - 15, rowTopY + rowHeight - 2, 0x44FFFFFF);
-            else if (hov) g.fill(this.getX() + 10, rowTopY, this.getX() + this.width - 15, rowTopY + rowHeight - 2, 0x11FFFFFF);
+            if (sel)      g.fill(this.getX() + ROW_INSET_LEFT, rowTopY, this.getX() + this.width - ROW_INSET_RIGHT, rowTopY + rowHeight - 2, 0x44FFFFFF);
+            else if (hov) g.fill(this.getX() + ROW_INSET_LEFT, rowTopY, this.getX() + this.width - ROW_INSET_RIGHT, rowTopY + rowHeight - 2, 0x11FFFFFF);
 
             int textColor = sel ? 0xFFFFCC00 : (hov ? 0xFFFFFFFF : 0xFF999999);
             RenderUtil.drawScaledText(g, ConfigManager.getModDisplayName(modId),
-                    1.0f, this.getX() + 16, rowTopY + 5, textColor, 1.0f, true);
+                    1.0f, this.getX() + ROW_INSET_LEFT + 6, rowTopY + 5, textColor, 1.0f, true);
         }
 
         int totalH = mods.size() * rowHeight;
@@ -116,139 +135,83 @@ public class ModListWidget extends AbstractWidget {
         }
     }
 
-    // -- Action bar -----------------------------------------------------------
-
     private void drawActionBar(GuiGraphicsExtractor g, int mx, int my) {
         boolean active = parent.hasModSelected();
 
-        // Separator line with margin above it
+        // Separator line aligned to the button area edges
         int sepY = listBottom() + BAR_MARGIN;
-        g.fill(this.getX() + BTN_PADDING, sepY,
-               this.getX() + this.width - BTN_PADDING, sepY + 1, CLR_SEPARATOR);
+        g.fill(btnAreaLeft(), sepY, btnAreaRight(), sepY + 1, CLR_SEPARATOR);
 
-        // Three buttons below the separator
-        int btnY   = sepY + 1 + BAR_MARGIN;
-        int totalW = this.width - BTN_PADDING * 4; // 4 gaps: left|btn|gap|btn|gap|btn|right
-        int btnW   = totalW / 3;
+        // Three vanilla-sprite buttons
+        int bY  = btnY();
+        int bW  = btnW();
 
-        int bx0 = this.getX() + BTN_PADDING;
-        int bx1 = bx0 + btnW + BTN_PADDING;
-        int bx2 = bx1 + btnW + BTN_PADDING;
-
-        boolean h0 = active && isOver(mx, my, bx0, btnY, bx0 + btnW, btnY + BTN_H);
-        boolean h1 = active && isOver(mx, my, bx1, btnY, bx1 + btnW, btnY + BTN_H);
-        boolean h2 = active && isOver(mx, my, bx2, btnY, bx2 + btnW, btnY + BTN_H);
-
-        drawMcButton(g, bx0, btnY, btnW, BTN_H, active, h0);
-        drawMcButton(g, bx1, btnY, btnW, BTN_H, active, h1);
-        drawMcButton(g, bx2, btnY, btnW, BTN_H, active, h2);
+        for (int i = 0; i < 3; i++) {
+            int bX  = btnX(i);
+            boolean hov = active && mx >= bX && mx < bX + bW && my >= bY && my < bY + BTN_H;
+            Identifier spr = active ? (hov ? SPR_BTN_HOV : SPR_BTN) : SPR_BTN_DIS;
+            RenderUtil.drawSprite(g, RenderPipelines.GUI, spr, bX, bY, bW, BTN_H);
+        }
 
         // Pixel icons centred in each button
-        int iconCy = btnY + BTN_H / 2; // vertical centre of button
-        drawIconSave   (g, bx0 + btnW / 2, iconCy, active ? ICO_SAVE    : ICO_DIS);
-        drawIconReset  (g, bx1 + btnW / 2, iconCy, active ? ICO_RESET   : ICO_DIS);
-        drawIconDiscard(g, bx2 + btnW / 2, iconCy, active ? ICO_DISCARD : ICO_DIS);
+        int icY = bY + BTN_H / 2;
+        drawIconSave   (g, btnX(0) + bW / 2, icY, active ? ICO_SAVE    : ICO_DIS);
+        drawIconReset  (g, btnX(1) + bW / 2, icY, active ? ICO_RESET   : ICO_DIS);
+        drawIconDiscard(g, btnX(2) + bW / 2, icY, active ? ICO_DISCARD : ICO_DIS);
     }
 
-    /**
-     * Draws a Minecraft-style bevelled button:
-     *   – 1px light top + left edge
-     *   – 1px dark bottom + right edge
-     *   – solid face fill
-     */
-    private void drawMcButton(GuiGraphicsExtractor g, int x, int y, int w, int h,
-                               boolean active, boolean hovered) {
-        int face   = active ? (hovered ? MC_BTN_FACE_HOV : MC_BTN_FACE) : MC_BTN_FACE_DIS;
-        int light  = active ? (hovered ? MC_BTN_LIGHT_HOV : MC_BTN_LIGHT) : MC_BTN_SHADOW_DIS;
-        int shadow = MC_BTN_SHADOW;
-
-        // Face
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, face);
-        // Top edge
-        g.fill(x,         y,         x + w,     y + 1,     light);
-        // Left edge
-        g.fill(x,         y + 1,     x + 1,     y + h - 1, light);
-        // Bottom edge
-        g.fill(x,         y + h - 1, x + w,     y + h,     shadow);
-        // Right edge
-        g.fill(x + w - 1, y + 1,     x + w,     y + h - 1, shadow);
-    }
-
-    // ── Pixel-art icons ──────────────────────────────────────────────────────
-    // All icons are drawn on a 7×7 grid centred on (cx, cy).
-    // Each uses only graphics.fill so they are pixel-perfect and identical in
-    // visual weight regardless of the font atlas.
+    // ── Pixel-art icons (7×7 grid, all drawn with fill) ──────────────────────
 
     /**
-     * ✔ checkmark on a 7×6 grid, 2px stroke weight.
-     * Left arm drops down-right, right arm climbs up-right.
+     * ✔ checkmark — 2px stroke, 7 wide × 5 tall, centred on (cx, cy)
      *
-     *   . . . . . X .
-     *   . . . . X X .
-     *   X . . X X . .
-     *   X X X X . . .
-     *   . X X . . . .
+     *   . . . . . █ .
+     *   . . . . █ █ .
+     *   █ . . █ █ . .
+     *   █ █ █ █ . . .
+     *   . █ █ . . . .
      */
     private void drawIconSave(GuiGraphicsExtractor g, int cx, int cy, int c) {
-        int x = cx - 3;
-        int y = cy - 2; // top of the 5-row icon
-        // Row 0
-        px(g, x + 5, y,     c);
-        // Row 1
-        px(g, x + 4, y + 1, c); px(g, x + 5, y + 1, c);
-        // Row 2
-        px(g, x,     y + 2, c); px(g, x + 3, y + 2, c); px(g, x + 4, y + 2, c);
-        // Row 3
-        px(g, x,     y + 3, c); px(g, x + 1, y + 3, c); px(g, x + 2, y + 3, c); px(g, x + 3, y + 3, c);
-        // Row 4
-        px(g, x + 1, y + 4, c); px(g, x + 2, y + 4, c);
+        int x = cx - 3, y = cy - 2;
+        px(g, x+5, y,   c);
+        px(g, x+4, y+1, c); px(g, x+5, y+1, c);
+        px(g, x,   y+2, c); px(g, x+3, y+2, c); px(g, x+4, y+2, c);
+        px(g, x,   y+3, c); px(g, x+1, y+3, c); px(g, x+2, y+3, c); px(g, x+3, y+3, c);
+        px(g, x+1, y+4, c); px(g, x+2, y+4, c);
     }
 
-    /** ✖ X — two diagonal strokes, each 2px thick, on a 7×7 grid */
+    /**
+     * ✖ X — two crossing diagonals, 2px stroke, 7×7 grid centred on (cx, cy)
+     */
     private void drawIconDiscard(GuiGraphicsExtractor g, int cx, int cy, int c) {
-        int x = cx - 3;
-        int y = cy - 3;
+        int x = cx - 3, y = cy - 3;
         for (int i = 0; i < 7; i++) {
-            px(g, x + i,     y + i,     c); // top-left → bottom-right
-            px(g, x + i + 1, y + i,     c); // 2px wide
-            px(g, x + 6 - i, y + i,     c); // top-right → bottom-left
-            px(g, x + 5 - i, y + i,     c); // 2px wide
+            px(g, x+i,   y+i,   c);
+            px(g, x+i+1, y+i,   c);
+            px(g, x+6-i, y+i,   c);
+            px(g, x+5-i, y+i,   c);
         }
     }
 
     /**
-     * ⟲ reset — clockwise circular arrow on a 7×7 grid.
-     * Drawn as an arc of 5/8 of a circle with a small arrowhead.
+     * ⟲ reset arrow — circular arc with arrowhead, 7×7, centred on (cx, cy)
      */
     private void drawIconReset(GuiGraphicsExtractor g, int cx, int cy, int c) {
-        int x = cx - 3;
-        int y = cy - 3;
-        // Arc pixels (hand-tuned for a 7×7 circle minus bottom-right gap)
-        // Top row
-        px(g, x + 2, y,     c); px(g, x + 3, y,     c); px(g, x + 4, y,     c);
-        // Upper corners
-        px(g, x + 1, y + 1, c); px(g, x + 5, y + 1, c);
-        // Sides
-        px(g, x,     y + 2, c); px(g, x + 6, y + 2, c);
-        px(g, x,     y + 3, c); px(g, x + 6, y + 3, c);
-        px(g, x,     y + 4, c);
-        // Bottom-left corner
-        px(g, x + 1, y + 5, c); px(g, x + 2, y + 6, c);
-        // Bottom partial (arc ends ~bottom-centre)
-        px(g, x + 3, y + 6, c);
-        // Arrowhead pointing right at the open end (bottom-right)
-        // The tail of the arc ends near (x+4, y+6); arrow points downward-right
-        px(g, x + 5, y + 5, c); // shaft
-        px(g, x + 4, y + 4, c); // inner arrowhead
-        px(g, x + 6, y + 4, c); // outer arrowhead
-        px(g, x + 5, y + 4, c); // fill
+        int x = cx - 3, y = cy - 3;
+        // Arc
+        px(g, x+2, y,   c); px(g, x+3, y,   c); px(g, x+4, y,   c);
+        px(g, x+1, y+1, c); px(g, x+5, y+1, c);
+        px(g, x,   y+2, c); px(g, x+6, y+2, c);
+        px(g, x,   y+3, c); px(g, x+6, y+3, c);
+        px(g, x,   y+4, c);
+        px(g, x+1, y+5, c); px(g, x+2, y+6, c); px(g, x+3, y+6, c);
+        // Arrowhead at open end (bottom-right)
+        px(g, x+5, y+5, c);
+        px(g, x+4, y+4, c); px(g, x+5, y+4, c); px(g, x+6, y+4, c);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    /** Draw a single 1×1 pixel. */
-    private static void px(GuiGraphicsExtractor g, int x, int y, int color) {
-        g.fill(x, y, x + 1, y + 1, color);
+    private static void px(GuiGraphicsExtractor g, int x, int y, int c) {
+        g.fill(x, y, x+1, y+1, c);
     }
 
     private static boolean isOver(int mx, int my, int x0, int y0, int x1, int y1) {
@@ -259,27 +222,22 @@ public class ModListWidget extends AbstractWidget {
 
     @Override
     public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
-        double mx = event.x();
-        double my = event.y();
+        double mx = event.x(), my = event.y();
 
         // Action bar
-        int sepY = listBottom() + BAR_MARGIN;
-        int btnY = sepY + 1 + BAR_MARGIN;
-        int btnBottom = btnY + BTN_H;
-        if (my >= btnY && my < btnBottom && mx >= this.getX() && mx < this.getX() + this.width) {
+        int bY = btnY(), bW = btnW();
+        if (my >= bY && my < bY + BTN_H) {
             if (!parent.hasModSelected()) return true;
-            this.playDownSound(Minecraft.getInstance().getSoundManager());
-
-            int totalW = this.width - BTN_PADDING * 4;
-            int btnW   = totalW / 3;
-            int bx0 = this.getX() + BTN_PADDING;
-            int bx1 = bx0 + btnW + BTN_PADDING;
-            int bx2 = bx1 + btnW + BTN_PADDING;
-
-            if (mx >= bx0 && mx < bx0 + btnW)      parent.onSave();
-            else if (mx >= bx1 && mx < bx1 + btnW) parent.onResetDefaults();
-            else if (mx >= bx2 && mx < bx2 + btnW) parent.onDiscard();
-            return true;
+            for (int i = 0; i < 3; i++) {
+                int bX = btnX(i);
+                if (mx >= bX && mx < bX + bW) {
+                    this.playDownSound(Minecraft.getInstance().getSoundManager());
+                    if (i == 0) parent.onSave();
+                    else if (i == 1) parent.onResetDefaults();
+                    else parent.onDiscard();
+                    return true;
+                }
+            }
         }
 
         // Scrollbar
@@ -301,7 +259,7 @@ public class ModListWidget extends AbstractWidget {
         for (int i = 0; i < mods.size(); i++) {
             int rowTopY = viewTop + (i * rowHeight) - (int) scrollAmount;
             if (rowTopY + rowHeight < viewTop || rowTopY > viewBottom) continue;
-            if (mx >= this.getX() + 10 && mx < this.getX() + this.width - 15
+            if (mx >= this.getX() + ROW_INSET_LEFT && mx < this.getX() + this.width - ROW_INSET_RIGHT
                     && my >= rowTopY && my < rowTopY + rowHeight) {
                 this.playDownSound(Minecraft.getInstance().getSoundManager());
                 this.activeSelectedMod = mods.get(i);
