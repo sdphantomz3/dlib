@@ -27,32 +27,26 @@ public class ConfigListWidget extends AbstractWidget {
     private int totalContentHeight = 0;
 
     // ── Toast notification ───────────────────────────────────────────────────
-    // The toast slides in from the right edge, stays, then slides back out.
-    //
-    // Timeline (all in ms, configurable):
-    //   0                     → starts sliding in
-    //   TOAST_SLIDE_MS        → fully visible, hold begins
-    //   TOAST_SLIDE_MS + TOAST_HOLD_MS          → starts sliding back out
-    //   TOAST_SLIDE_MS*2 + TOAST_HOLD_MS        → fully hidden (animation done)
-    //
-    private static final long TOAST_SLIDE_MS = 300L;  // slide in / slide out duration
-    private static final long TOAST_HOLD_MS  = 1800L; // how long it stays visible
+    private static final long TOAST_SLIDE_MS = 300L;
+    private static final long TOAST_HOLD_MS  = 1800L;
 
-    // Toast visual constants
     private static final int TOAST_H        = 22;
     private static final int TOAST_PAD_X    = 10;
     private static final int TOAST_PAD_Y    = 6;
-    private static final int TOAST_MARGIN   = 10; // gap from right + bottom edges
+    private static final int TOAST_MARGIN   = 10;
 
-    // MC panel-style colours (matches the dark inventory panel look)
     private static final int TOAST_BG       = 0xFF2D2D2D;
-    private static final int TOAST_BORDER_L = 0xFF555555; // light edge (top+left)
-    private static final int TOAST_BORDER_D = 0xFF111111; // dark edge (bottom+right)
+    private static final int TOAST_BORDER_L = 0xFF555555;
+    private static final int TOAST_BORDER_D = 0xFF111111;
 
     private String  toastMessage  = "";
     private int     toastColor    = 0xFFFFFFFF;
-    private long    toastStartMs  = 0L;          // Util.getMillis() when triggerFeedback was called
+    private long    toastStartMs  = 0L;
     private boolean toastActive   = false;
+
+    // ── Tooltip hover state ─────────────────────────────────────────────────
+    private String hoveredTooltip = null;
+    private int tooltipX, tooltipY;
 
     public ConfigListWidget(int x, int y, int width, int height) {
         super(x, y, width, height, Component.empty());
@@ -96,7 +90,7 @@ public class ConfigListWidget extends AbstractWidget {
         Minecraft mc = Minecraft.getInstance();
 
         for (CategoryInfo cat : categoryInfos) {
-            configRows.add(new ConfigRow(cat.name, null, null, true, runningRelativeY, 20));
+            configRows.add(new ConfigRow(cat.name, null, null, true, runningRelativeY, 20, null));
             runningRelativeY += 20;
 
             if (categoryExpanded.getOrDefault(cat.name, false)) {
@@ -153,7 +147,7 @@ public class ConfigListWidget extends AbstractWidget {
                         inputWidget = inputField;
                     }
 
-                    configRows.add(new ConfigRow(null, key, inputWidget, false, runningRelativeY, 24));
+                    configRows.add(new ConfigRow(null, key, inputWidget, false, runningRelativeY, 24, option.tooltip));
                     runningRelativeY += 24;
                 }
                 runningRelativeY += 8;
@@ -207,6 +201,9 @@ public class ConfigListWidget extends AbstractWidget {
         int viewBottom = this.height - 15;
         int viewHeight = viewBottom - viewTop;
 
+        // Reset hovered tooltip each frame
+        hoveredTooltip = null;
+
         for (ConfigRow row : configRows) {
             int rowScreenY = viewTop + row.relativeY - (int) scrollAmount;
             if (rowScreenY + row.height < viewTop || rowScreenY > viewBottom) continue;
@@ -239,13 +236,42 @@ public class ConfigListWidget extends AbstractWidget {
                         1.1f, this.getX() + 40, rowScreenY + 5, color, 1.0f, true);
             } else {
                 int widgetX = this.getX() + this.width - 170;
-                int maxLabelWidth = (widgetX - (this.getX() + 20)) - 10;
-                String cleanLabelText = row.optionKey + ":";
-                if (mc.font.width(cleanLabelText) > maxLabelWidth) {
-                    cleanLabelText = mc.font.plainSubstrByWidth(cleanLabelText, maxLabelWidth - 8) + "...";
+                int labelX = this.getX() + 20;
+                int questionX = widgetX - 14;   // reserve space for '?' if tooltip present
+                int maxLabelWidth = questionX - labelX - 2; // leave 2px gap
+
+                String labelText = row.optionKey + ":";
+                String displayLabel = labelText;
+                if (mc.font.width(displayLabel) > maxLabelWidth) {
+                    displayLabel = mc.font.plainSubstrByWidth(displayLabel, maxLabelWidth - 8) + "...";
                 }
-                RenderUtil.drawScaledText(graphics, cleanLabelText,
-                        1.0f, this.getX() + 20, rowScreenY + 5, 0xFFBBBBBB, 1.0f, true);
+
+                // Draw label
+                RenderUtil.drawScaledText(graphics, displayLabel,
+                        1.0f, labelX, rowScreenY + 5, 0xFFBBBBBB, 1.0f, true);
+
+                // Draw question mark if tooltip exists – now blue
+                if (row.tooltip != null && !row.tooltip.isEmpty()) {
+                    int qX = questionX;
+                    int qY = rowScreenY + 5;
+                    int qW = mc.font.width("?");
+                    int qH = mc.font.lineHeight;
+                    // Slightly larger hitbox for comfort
+                    boolean hover = mouseX >= qX - 2 && mouseX <= qX + qW + 2 &&
+                                    mouseY >= qY - 2 && mouseY <= qY + qH + 2;
+
+                    // Blue question mark (always blue, but brighter on hover)
+                    int color = hover ? 0xFF88CCFF : 0xFF55AAFF;
+                    RenderUtil.drawScaledText(graphics, "?", 1.0f, qX, qY, color, 1.0f, true);
+
+                    if (hover) {
+                        hoveredTooltip = row.tooltip;
+                        tooltipX = qX;
+                        tooltipY = qY + qH + 2; // below the '?'
+                    }
+                }
+
+                // Draw the input widget
                 if (row.widget != null) {
                     row.widget.setY(rowScreenY + (row.height - row.widget.getHeight()) / 2);
                     row.widget.extractRenderState(graphics, mouseX, mouseY, partialTick);
@@ -264,21 +290,98 @@ public class ConfigListWidget extends AbstractWidget {
             graphics.fill(scrollbarX, thumbY, scrollbarX + trackWidth, thumbY + thumbHeight, 0x88FFFFFF);
         }
 
+        // Tooltip popup
+        if (hoveredTooltip != null) {
+            drawTooltip(graphics, hoveredTooltip, tooltipX, tooltipY);
+        }
+
         // Toast notification
         drawToast(graphics);
     }
 
+    /**
+     * Draws a tooltip popup with dark background, light border, and text wrapping.
+     */
+    private void drawTooltip(GuiGraphicsExtractor g, String text, int x, int y) {
+        Minecraft mc = Minecraft.getInstance();
+        int maxWidth = Math.min(200, this.width / 2); // wrap at half the widget width, max 200px
+        List<String> lines = new ArrayList<>();
+        String[] words = text.split(" ");
+        StringBuilder line = new StringBuilder();
+        for (String word : words) {
+            String test = line.length() == 0 ? word : line + " " + word;
+            if (mc.font.width(test) <= maxWidth) {
+                line = new StringBuilder(test);
+            } else {
+                if (line.length() > 0) {
+                    lines.add(line.toString());
+                    line = new StringBuilder(word);
+                } else {
+                    // word itself exceeds maxWidth – force break
+                    lines.add(word);
+                    line = new StringBuilder();
+                }
+            }
+        }
+        if (line.length() > 0) lines.add(line.toString());
+
+        int padding = 6;
+        int lineHeight = mc.font.lineHeight;
+        int bgWidth = 0;
+        for (String l : lines) {
+            int w = mc.font.width(l);
+            if (w > bgWidth) bgWidth = w;
+        }
+        bgWidth += padding * 2;
+        int bgHeight = lines.size() * lineHeight + padding * 2;
+
+        // Clamp position to stay on screen
+        int screenWidth = mc.getWindow().getGuiScaledWidth();
+        int screenHeight = mc.getWindow().getGuiScaledHeight();
+        int widgetRight = this.getX() + this.width;
+        int widgetBottom = this.getY() + this.height;
+
+        // Horizontal: if x + bgWidth would go off the right edge, shift left
+        if (x + bgWidth > screenWidth - 2) {
+            x = screenWidth - bgWidth - 2;
+        }
+        if (x < 2) x = 2;
+
+        // Vertical: if y + bgHeight goes off the bottom, show above
+        if (y + bgHeight > screenHeight - 2) {
+            y = y - bgHeight - 4; // 4px gap from the question mark
+        }
+        if (y < 2) y = 2;
+
+        // Draw background (dark) with light border
+        int bgColor = 0xFF1A1A1A;
+        int borderLight = 0xFFAAAAAA;
+        int borderDark = 0xFF666666;
+
+        // Fill
+        g.fill(x, y, x + bgWidth, y + bgHeight, bgColor);
+        // Borders (1px) – light on top and left, dark on bottom and right
+        g.fill(x, y, x + bgWidth, y + 1, borderLight);                // top
+        g.fill(x, y + bgHeight - 1, x + bgWidth, y + bgHeight, borderDark); // bottom
+        g.fill(x, y, x + 1, y + bgHeight, borderLight);               // left
+        g.fill(x + bgWidth - 1, y, x + bgWidth, y + bgHeight, borderDark); // right
+        // Corner pixels – blend
+        g.fill(x, y, x + 1, y + 1, borderDark);
+        g.fill(x + bgWidth - 1, y, x + bgWidth, y + 1, borderDark);
+        g.fill(x, y + bgHeight - 1, x + 1, y + bgHeight, borderDark);
+        g.fill(x + bgWidth - 1, y + bgHeight - 1, x + bgWidth, y + bgHeight, borderDark);
+
+        // Draw text lines (white)
+        int textX = x + padding;
+        int textY = y + padding;
+        for (String lineText : lines) {
+            RenderUtil.drawScaledText(g, lineText, 1.0f, textX, textY, 0xFFFFFFFF, 1.0f, true);
+            textY += lineHeight;
+        }
+    }
+
     // ── Toast ─────────────────────────────────────────────────────────────────
 
-    /**
-     * Draws the sliding toast.
-     *
-     * Slide offset logic:
-     *   phase 0 (0..SLIDE_MS)               → sliding in:  offset = toastWidth * (1 - t)
-     *   phase 1 (SLIDE_MS..SLIDE_MS+HOLD_MS) → fully shown: offset = 0
-     *   phase 2 (..SLIDE_MS*2+HOLD_MS)       → sliding out: offset = toastWidth * t
-     *   after that                            → hidden, toastActive = false
-     */
     private void drawToast(GuiGraphicsExtractor g) {
         if (!toastActive) return;
 
@@ -295,53 +398,39 @@ public class ConfigListWidget extends AbstractWidget {
         int textW  = mc.font.width(toastMessage);
         int toastW = textW + TOAST_PAD_X * 2;
 
-        // Compute horizontal slide offset (pixels hidden to the right)
         float slideOffset;
         if (elapsed < TOAST_SLIDE_MS) {
-            // Sliding in: ease-out (1 - t^2 reversed → start fast, slow down)
             float t = (float) elapsed / TOAST_SLIDE_MS;
             slideOffset = toastW * (1f - easeOut(t));
         } else if (elapsed < TOAST_SLIDE_MS + TOAST_HOLD_MS) {
             slideOffset = 0f;
         } else {
-            // Sliding out
             float t = (float) (elapsed - TOAST_SLIDE_MS - TOAST_HOLD_MS) / TOAST_SLIDE_MS;
             slideOffset = toastW * easeIn(t);
         }
 
-        // Position: bottom-right of the right pane
         int rightEdge = this.getX() + this.width - TOAST_MARGIN;
         int toastX    = (int) (rightEdge - toastW + slideOffset);
         int toastY    = this.getY() + this.height - TOAST_MARGIN - TOAST_H;
 
-        // Draw MC-panel style background
-        // Dark fill
         g.fill(toastX + 1, toastY + 1, toastX + toastW - 1, toastY + TOAST_H - 1, TOAST_BG);
-        // Light top + left edges (1px)
-        g.fill(toastX,           toastY,           toastX + toastW,     toastY + 1,     TOAST_BORDER_L); // top
-        g.fill(toastX,           toastY + 1,       toastX + 1,          toastY + TOAST_H - 1, TOAST_BORDER_L); // left
-        // Dark bottom + right edges (1px)
-        g.fill(toastX,           toastY + TOAST_H - 1, toastX + toastW, toastY + TOAST_H, TOAST_BORDER_D); // bottom
-        g.fill(toastX + toastW - 1, toastY + 1,   toastX + toastW,    toastY + TOAST_H - 1, TOAST_BORDER_D); // right
-        // Corner pixels — cut to a slight rounded look by darkening them
-        g.fill(toastX,           toastY,           toastX + 1,          toastY + 1,     TOAST_BORDER_D); // top-left
-        g.fill(toastX + toastW - 1, toastY,        toastX + toastW,     toastY + 1,     TOAST_BORDER_D); // top-right
-        g.fill(toastX,           toastY + TOAST_H - 1, toastX + 1,      toastY + TOAST_H, TOAST_BORDER_D); // bot-left
-        g.fill(toastX + toastW - 1, toastY + TOAST_H - 1, toastX + toastW, toastY + TOAST_H, TOAST_BORDER_D); // bot-right
+        g.fill(toastX,           toastY,           toastX + toastW,     toastY + 1,     TOAST_BORDER_L);
+        g.fill(toastX,           toastY + 1,       toastX + 1,          toastY + TOAST_H - 1, TOAST_BORDER_L);
+        g.fill(toastX,           toastY + TOAST_H - 1, toastX + toastW, toastY + TOAST_H, TOAST_BORDER_D);
+        g.fill(toastX + toastW - 1, toastY + 1,   toastX + toastW,    toastY + TOAST_H - 1, TOAST_BORDER_D);
+        g.fill(toastX,           toastY,           toastX + 1,          toastY + 1,     TOAST_BORDER_D);
+        g.fill(toastX + toastW - 1, toastY,        toastX + toastW,     toastY + 1,     TOAST_BORDER_D);
+        g.fill(toastX,           toastY + TOAST_H - 1, toastX + 1,      toastY + TOAST_H, TOAST_BORDER_D);
+        g.fill(toastX + toastW - 1, toastY + TOAST_H - 1, toastX + toastW, toastY + TOAST_H, TOAST_BORDER_D);
 
-        // Accent left bar (1px wide, inset 1 from left edge, colour matches message type)
         g.fill(toastX + 1, toastY + 1, toastX + 3, toastY + TOAST_H - 1, toastColor);
 
-        // Text centred vertically, offset right of accent bar
         int textY = toastY + (TOAST_H - 8) / 2;
         RenderUtil.drawScaledText(g, toastMessage, 1.0f,
                 toastX + TOAST_PAD_X + 2, textY, 0xFFEEEEEE, 1.0f, true);
     }
 
-    /** Quadratic ease-out: starts fast, ends slow. t in [0,1] → [0,1]. */
     private static float easeOut(float t) { return 1f - (1f - t) * (1f - t); }
-
-    /** Quadratic ease-in: starts slow, ends fast. t in [0,1] → [0,1]. */
     private static float easeIn(float t)  { return t * t; }
 
     // ── Input ────────────────────────────────────────────────────────────────
@@ -467,9 +556,16 @@ public class ConfigListWidget extends AbstractWidget {
         final boolean isCategory;
         final int relativeY;
         final int height;
-        ConfigRow(String catName, String key, AbstractWidget widget, boolean isCategory, int relativeY, int height) {
-            this.categoryName = catName; this.optionKey = key; this.widget = widget;
-            this.isCategory = isCategory; this.relativeY = relativeY; this.height = height;
+        final String tooltip;
+
+        ConfigRow(String catName, String key, AbstractWidget widget, boolean isCategory, int relativeY, int height, String tooltip) {
+            this.categoryName = catName;
+            this.optionKey = key;
+            this.widget = widget;
+            this.isCategory = isCategory;
+            this.relativeY = relativeY;
+            this.height = height;
+            this.tooltip = tooltip;
         }
     }
 }

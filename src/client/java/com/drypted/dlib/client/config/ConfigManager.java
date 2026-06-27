@@ -36,23 +36,25 @@ public class ConfigManager {
      * @param choices         List of choices for "cycle" type (nullable)
      */
     public static void registerOption(String modId, String modDisplayName, String category, String key,
-                                      String uniqueKey, String type, String defaultValue, List<String> choices) {
-        // Store display name
+                                      String uniqueKey, String type, String defaultValue,
+                                      List<String> choices, String tooltip) {
         MOD_DISPLAY_NAMES.put(modId, modDisplayName);
+        ConfigOption opt = new ConfigOption(type, defaultValue, defaultValue, choices, tooltip);
 
-        // Create the option object
-        ConfigOption opt = new ConfigOption(type, defaultValue, defaultValue, choices);
-
-        // Store in hierarchical registry
         REGISTRY.computeIfAbsent(modId, k -> new LinkedHashMap<>())
                 .computeIfAbsent(category, k -> new LinkedHashMap<>())
                 .put(key, opt);
 
-        // Map the unique key to the same object
         if (OPTION_MAP.containsKey(uniqueKey)) {
             System.err.println("[DLib] Duplicate uniqueKey: " + uniqueKey + " (overwriting)");
         }
         OPTION_MAP.put(uniqueKey, opt);
+    }
+
+    public static void registerOption(String modId, String modDisplayName, String category, String key,
+                                      String uniqueKey, String type, String defaultValue,
+                                      List<String> choices) {
+        registerOption(modId, modDisplayName, category, key, uniqueKey, type, defaultValue, choices, null);
     }
 
     /**
@@ -163,17 +165,19 @@ public class ConfigManager {
     public static List<String> getRegisteredMods() { return new ArrayList<>(REGISTRY.keySet()); }
     public static LinkedHashMap<String, LinkedHashMap<String, ConfigOption>> getStructureForMod(String mod) { return REGISTRY.getOrDefault(mod, new LinkedHashMap<>()); }
 
-    public static class ConfigOption {
+     public static class ConfigOption {
         public final String type;
         public String value;
         public final String defaultValue;
         public final List<String> choices;
+        public final String tooltip;   // new field
 
-        public ConfigOption(String type, String value, String defaultValue, List<String> choices) {
+        public ConfigOption(String type, String value, String defaultValue, List<String> choices, String tooltip) {
             this.type = type;
             this.value = value;
             this.defaultValue = defaultValue;
             this.choices = choices;
+            this.tooltip = tooltip;
         }
     }
 }
