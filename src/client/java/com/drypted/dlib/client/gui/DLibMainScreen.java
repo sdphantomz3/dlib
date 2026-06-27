@@ -1,7 +1,6 @@
 package com.drypted.dlib.client.gui;
 
 import com.drypted.dlib.client.config.ConfigManager;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
@@ -13,10 +12,16 @@ public class DLibMainScreen extends Screen {
     private final Screen parentScreen;
     private ModListWidget modListWidget;
     private ConfigListWidget configListWidget;
+    private final String initialModId; 
 
-    public DLibMainScreen(Screen parentScreen) {
+    public DLibMainScreen(Screen parentScreen, String initialModId) {
         super(Component.literal("EasyConfig Config Manager"));
         this.parentScreen = parentScreen;
+        this.initialModId = initialModId;
+    }
+    
+    public DLibMainScreen(Screen parentScreen) {
+        this(parentScreen, null);   // no initial mod preselected
     }
 
     @Override
@@ -30,11 +35,22 @@ public class DLibMainScreen extends Screen {
 
         this.configListWidget = new ConfigListWidget(leftPanelWidth, 0, this.width - leftPanelWidth, this.height);
         this.addRenderableWidget(this.configListWidget);
+
+        if (initialModId != null && !initialModId.isEmpty()) {
+            setSelectedMod(initialModId);
+        }
+    }
+    
+    public static Screen openConfigScreen(Screen parent, String modId) {
+        return new DLibMainScreen(parent, modId);
     }
 
     public void setSelectedMod(String modName) {
         if (this.configListWidget != null) {
             this.configListWidget.setMod(modName);
+        }
+        if (this.modListWidget != null) {
+            this.modListWidget.setSelectedMod(modName);
         }
     }
 

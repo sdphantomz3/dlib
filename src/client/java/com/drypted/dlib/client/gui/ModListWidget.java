@@ -36,6 +36,25 @@ public class ModListWidget extends AbstractWidget {
     private static final int ICO_DISCARD = 0xFFFF5555;
     private static final int ICO_DIS     = 0xFF666666;
 
+    
+    public void setSelectedMod(String modId) {
+        this.activeSelectedMod = modId;
+        List<String> mods = ConfigManager.getRegisteredMods();
+        int index = mods.indexOf(modId);
+        if (index != -1) {
+            int viewTop = this.getY() + 15;
+            int viewBottom = listBottom();
+            int viewHeight = viewBottom - viewTop;
+            int targetY = index * rowHeight;
+            // Clamp scroll to show the row
+            if (targetY < scrollAmount) {
+                scrollAmount = targetY;
+            } else if (targetY + rowHeight > scrollAmount + viewHeight) {
+                scrollAmount = targetY + rowHeight - viewHeight;
+            }
+        }
+    }
+
     // ── Three action buttons ─────────────────────────────────────────────────
     private final Button saveButton;
     private final Button resetButton;
@@ -267,7 +286,7 @@ public class ModListWidget extends AbstractWidget {
                     && my >= rowTopY && my < rowTopY + rowHeight) {
                 this.playDownSound(Minecraft.getInstance().getSoundManager());
                 this.activeSelectedMod = mods.get(i);
-                this.parent.setSelectedMod(this.activeSelectedMod);
+                this.parent.setSelectedMod(mods.get(i)); 
                 return true;
             }
         }
