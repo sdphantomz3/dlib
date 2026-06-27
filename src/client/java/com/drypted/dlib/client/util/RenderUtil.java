@@ -1,7 +1,10 @@
 package com.drypted.dlib.client.util;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 
 public class RenderUtil {
 
@@ -26,5 +29,34 @@ public class RenderUtil {
         g.pose().scale(scale, scale);
         g.text(Minecraft.getInstance().font, text, 0, 0, finalColor, drawShadow);
         g.pose().popMatrix();
+    }
+
+    /**
+     * Draws a sprite from the texture atlas using the default GUI render pipeline.
+     *
+     * @param g      GuiGraphicsExtractor context
+     * @param sprite Identifier of the sprite
+     * @param x      X position
+     * @param y      Y position
+     * @param width  Width in pixels
+     * @param height Height in pixels
+     */
+    public static void drawSprite(GuiGraphicsExtractor g, Identifier sprite, int x, int y, int width, int height) {
+        drawSprite(g, RenderPipelines.GUI, sprite, x, y, width, height);
+    }
+
+    /**
+     * Draws a sprite from the texture atlas with a specified render pipeline.
+     *
+     * @param g        GuiGraphicsExtractor context
+     * @param pipeline RenderPipeline to use (e.g. RenderPipelines.GUI)
+     * @param sprite   Identifier of the sprite
+     * @param x        X position
+     * @param y        Y position
+     * @param width    Width in pixels
+     * @param height   Height in pixels
+     */
+    public static void drawSprite(GuiGraphicsExtractor g, RenderPipeline pipeline, Identifier sprite, int x, int y, int width, int height) {
+        g.blitSprite(pipeline, sprite, x, y, width, height);
     }
 }
