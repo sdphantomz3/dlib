@@ -175,7 +175,7 @@ public class ConfigListWidget extends AbstractWidget {
         if (mouseX >= this.getX() && mouseX <= this.getX() + this.width &&
                 mouseY >= this.getY() && mouseY <= this.getY() + this.height) {
             int maxScroll = this.totalContentHeight - viewHeight;
-            this.scrollAmount = Math.max(0, Math.min(this.scrollAmount - scrollY * 14, maxScroll));
+            this.scrollAmount = Math.max(0, Math.min(this.scrollAmount + scrollY * 14, maxScroll));
             return true;
         }
         return false;
