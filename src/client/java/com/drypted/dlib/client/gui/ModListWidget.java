@@ -110,9 +110,10 @@ public class ModListWidget extends AbstractWidget {
         int viewHeight = viewBottom - viewTop;
         int totalH     = ConfigManager.getRegisteredMods().size() * rowHeight;
         if (totalH <= viewHeight) return false;
+        
         if (mouseX >= this.getX() && mouseX <= this.getX() + this.width
                 && mouseY >= this.getY() && mouseY <= viewBottom) {
-            this.scrollAmount = Math.max(0, Math.min(this.scrollAmount + scrollY * 14, totalH - viewHeight));
+            this.scrollAmount = Math.max(0, Math.min(this.scrollAmount - scrollY * 14, totalH - viewHeight));
             return true;
         }
         return false;
