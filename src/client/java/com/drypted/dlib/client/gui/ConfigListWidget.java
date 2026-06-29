@@ -168,13 +168,17 @@ public class ConfigListWidget extends AbstractWidget {
 
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (this.currentMod == null) return false;
-        int viewTop = this.getY() + 15;
+        
+        int viewTop = this.getY() + 45; 
         int viewBottom = this.height - 15;
         int viewHeight = viewBottom - viewTop;
+        
         if (this.totalContentHeight <= viewHeight) return false;
+        
         if (mouseX >= this.getX() && mouseX <= this.getX() + this.width &&
                 mouseY >= this.getY() && mouseY <= this.getY() + this.height) {
             int maxScroll = this.totalContentHeight - viewHeight;
+            
             this.scrollAmount = Math.max(0, Math.min(this.scrollAmount + scrollY * 14, maxScroll));
             return true;
         }
