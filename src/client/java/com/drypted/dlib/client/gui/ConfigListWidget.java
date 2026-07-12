@@ -140,6 +140,17 @@ public class ConfigListWidget extends AbstractWidget {
                                 })
                                 .bounds(targetWidgetX, 0, 130, 20)
                                 .build();
+                    } else if (option.type.equals("action")) {
+                        // Action button: executes the Runnable callback when clicked
+                        inputWidget = Button.builder(
+                                Component.literal(option.value),
+                                (b) -> {
+                                    if (option.action != null) {
+                                        option.action.run();
+                                    }
+                                })
+                                .bounds(targetWidgetX, 0, 130, 20)
+                                .build();
                     } else if (option.type.equals("cycle")) {
                         inputWidget = Button.builder(
                                 Component.literal(option.value),

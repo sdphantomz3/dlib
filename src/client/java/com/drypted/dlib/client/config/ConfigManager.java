@@ -31,9 +31,10 @@ public class ConfigManager {
      * @param category        Category within the mod
      * @param key             Option key within the category
      * @param uniqueKey       Globally unique key for this option (used with getOption)
-     * @param type            "toggle", "cycle", "text", "number", "item_select", "item_select_multi"
+     * @param type            "toggle", "cycle", "text", "number", "item_select", "item_select_multi", "action"
      *                        - "item_select": single item picker (choices = list of item IDs like "minecraft:diamond")
      *                        - "item_select_multi": multi-item picker (same choices format)
+     *                        - "action": a button that executes a Runnable callback (use registerAction)
      * @param defaultValue    Default value as string.
      *                        For item_select types, use comma-separated item IDs (e.g. "minecraft:diamond,minecraft:iron_ingot")
      * @param choices         List of choices for "cycle" type, or list of available item IDs for "item_select" types (nullable)
@@ -43,7 +44,7 @@ public class ConfigManager {
                                       String uniqueKey, String type, String defaultValue,
                                       List<String> choices, String tooltip) {
         MOD_DISPLAY_NAMES.put(modId, modDisplayName);
-        ConfigOption opt = new ConfigOption(type, defaultValue, defaultValue, choices, tooltip);
+        ConfigOption opt = new ConfigOption(type, defaultValue, defaultValue, choices, tooltip, null);
 
         REGISTRY.computeIfAbsent(modId, k -> new LinkedHashMap<>())
                 .computeIfAbsent(category, k -> new LinkedHashMap<>())
@@ -59,6 +60,45 @@ public class ConfigManager {
                                       String uniqueKey, String type, String defaultValue,
                                       List<String> choices) {
         registerOption(modId, modDisplayName, category, key, uniqueKey, type, defaultValue, choices, null);
+    }
+
+    /**
+     * Register an "action" option — a button that executes a callback when clicked.
+     * <p>
+     * Action options are not persisted to disk (no value to save).
+     * The button label is taken from {@code key}.
+     *
+     * @param modId           Internal mod identifier
+     * @param modDisplayName  Human‑readable name shown in the GUI
+     * @param category        Category within the mod
+     * @param key             Button label (also used as the option key)
+     * @param uniqueKey       Globally unique key for this option
+     * @param buttonLabel     Text shown on the button in the GUI
+     * @param callback        The Runnable to execute when the button is clicked
+     * @param tooltip         Optional hover tooltip text (nullable)
+     */
+    public static void registerAction(String modId, String modDisplayName, String category, String key,
+                                      String uniqueKey, String buttonLabel, Runnable callback, String tooltip) {
+        MOD_DISPLAY_NAMES.put(modId, modDisplayName);
+        ConfigOption opt = new ConfigOption("action", buttonLabel, buttonLabel, null, tooltip, callback);
+
+        REGISTRY.computeIfAbsent(modId, k -> new LinkedHashMap<>())
+                .computeIfAbsent(category, k -> new LinkedHashMap<>())
+                .put(key, opt);
+
+        if (OPTION_MAP.containsKey(uniqueKey)) {
+            System.err.println("[DLib] Duplicate uniqueKey: " + uniqueKey + " (overwriting)");
+        }
+        OPTION_MAP.put(uniqueKey, opt);
+    }
+
+    /**
+     * Register an "action" option without a tooltip.
+     * @see #registerAction(String, String, String, String, String, String, Runnable, String)
+     */
+    public static void registerAction(String modId, String modDisplayName, String category, String key,
+                                      String uniqueKey, String buttonLabel, Runnable callback) {
+        registerAction(modId, modDisplayName, category, key, uniqueKey, buttonLabel, callback, null);
     }
 
     /**
@@ -105,6 +145,7 @@ public class ConfigManager {
                         if (catJson.has(key)) {
                             JsonElement valueElem = catJson.get(key);
                             ConfigOption option = options.get(key);
+                            if (option.type.equals("action")) continue; // action buttons have no persisted value
                             if (option.type.equals("toggle") && valueElem.isJsonPrimitive()) {
                                 option.value = String.valueOf(valueElem.getAsBoolean());
                             } else if (valueElem.isJsonPrimitive()) {
@@ -132,6 +173,7 @@ public class ConfigManager {
                 JsonObject catJson = new JsonObject();
                 for (Map.Entry<String, ConfigOption> optEntry : catEntry.getValue().entrySet()) {
                     ConfigOption opt = optEntry.getValue();
+                    if (opt.type.equals("action")) continue; // action buttons have no persisted value
                     if (opt.type.equals("toggle")) {
                         catJson.addProperty(optEntry.getKey(), Boolean.parseBoolean(opt.value));
                     } else {
@@ -174,14 +216,16 @@ public class ConfigManager {
         public String value;
         public final String defaultValue;
         public final List<String> choices;
-        public final String tooltip;   // new field
+        public final String tooltip;   // hover tooltip text
+        public final Runnable action;  // callback for "action" type (nullable)
 
-        public ConfigOption(String type, String value, String defaultValue, List<String> choices, String tooltip) {
+        public ConfigOption(String type, String value, String defaultValue, List<String> choices, String tooltip, Runnable action) {
             this.type = type;
             this.value = value;
             this.defaultValue = defaultValue;
             this.choices = choices;
             this.tooltip = tooltip;
+            this.action = action;
         }
     }
 }
