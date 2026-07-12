@@ -53,9 +53,9 @@ public class ItemSelectPopup extends Screen {
     private static final int ACTION_BTN_GAP = 4;
 
     // ── Palette — matches ConfigListWidget / ModListWidget ─────────────────────
-    private static final int COLOR_BACKDROP = 0x88000000;
+    private static final int COLOR_BACKDROP = 0xAA000000;  // Semi-transparent black overlay
 
-    private static final int PANEL_BG          = 0xFF1A1A1A;
+    private static final int PANEL_BG          = 0xDD1A1A1A;  // Semi-transparent dark panel
     private static final int BORDER_LIGHT      = 0xFFAAAAAA;
     private static final int BORDER_DARK       = 0xFF666666;
     private static final int SEPARATOR         = 0xFF555555;
@@ -140,9 +140,10 @@ public class ItemSelectPopup extends Screen {
     protected void init() {
         Minecraft mc = Minecraft.getInstance();
 
-        // --- Panel bounds, responsive to screen size ---
-        panelW = Mth.clamp(this.width - PANEL_MARGIN * 2, MIN_PANEL_W, MAX_PANEL_W);
-        panelH = Mth.clamp(this.height - PANEL_MARGIN * 2, MIN_PANEL_H, MAX_PANEL_H);
+        // --- Panel bounds, responsive to screen size with equal margins ---
+        panelW = Math.min(MAX_PANEL_W, (int)(this.width * 0.85f));
+        panelH = Math.min(MAX_PANEL_H, (int)(this.height * 0.85f));
+
         panelX = (this.width - panelW) / 2;
         panelY = (this.height - panelH) / 2;
 
@@ -279,11 +280,23 @@ public class ItemSelectPopup extends Screen {
     }
 
     private void drawBackdropAndPanel(GuiGraphicsExtractor graphics) {
-        // Dim the game world behind the dialog
-        graphics.fill(0, 0, this.width, this.height, COLOR_BACKDROP);
+        // Semi-transparent black overlay on the game world
+        // graphics.fill(0, 0, this.width, this.height, COLOR_BACKDROP);
 
-        // Panel: flat dark fill + light-top/left, dark-bottom/right bevel
-        drawBevelPanel(graphics, panelX, panelY, panelW, panelH, PANEL_BG);
+        // Panel background - semi-transparent dark
+        graphics.fill(panelX + 1, panelY + 1, panelX + panelW - 1, panelY + panelH - 1, COLOR_BACKDROP);
+
+        // Panel border - light on top and left, dark on bottom and right
+        graphics.fill(panelX, panelY, panelX + panelW, panelY + 1, BORDER_LIGHT);                 // top
+        graphics.fill(panelX, panelY + panelH - 1, panelX + panelW, panelY + panelH, BORDER_DARK); // bottom
+        graphics.fill(panelX, panelY, panelX + 1, panelY + panelH, BORDER_LIGHT);                 // left
+        graphics.fill(panelX + panelW - 1, panelY, panelX + panelW, panelY + panelH, BORDER_DARK); // right
+
+        // Corner fixes (dark corners)
+        graphics.fill(panelX, panelY, panelX + 1, panelY + 1, BORDER_DARK);
+        graphics.fill(panelX + panelW - 1, panelY, panelX + panelW, panelY + 1, BORDER_DARK);
+        graphics.fill(panelX, panelY + panelH - 1, panelX + 1, panelY + panelH, BORDER_DARK);
+        graphics.fill(panelX + panelW - 1, panelY + panelH - 1, panelX + panelW, panelY + panelH, BORDER_DARK);
 
         // Title (left-aligned, matches "Mod Config: X" header convention)
         String title = multi ? "Select Items" : "Select Item";
@@ -358,14 +371,22 @@ public class ItemSelectPopup extends Screen {
 
         graphics.disableScissor();
 
-        // Hover tooltip
+        // Hover tooltip - format: "Name - minecraft:id"
         if (hoveredIndex >= 0) {
             ItemStack hoveredStack = filteredItems.get(hoveredIndex);
             String itemId = getItemId(hoveredStack);
             boolean isSelected = selectedIds.contains(itemId);
-            Component tooltip = Component.literal(getDisplayName(itemId) + (isSelected ? " \u2713" : ""))
-                    .withStyle(s -> s.withColor(isSelected ? ICO_SAVE : 0xFFFFFFFF))
-                    .append(Component.literal("\n" + itemId).withStyle(s -> s.withColor(TEXT_EMPTY)));
+            
+            String displayName = getDisplayName(itemId);
+            String tooltipText = displayName + " - " + itemId;
+            
+            // Add checkmark if selected
+            if (isSelected) {
+                tooltipText = tooltipText + " ✓";
+            }
+            
+            Component tooltip = Component.literal(tooltipText)
+                    .withStyle(s -> s.withColor(isSelected ? ICO_SAVE : 0xFFFFFFFF));
             graphics.setTooltipForNextFrame(tooltip, mouseX, mouseY);
         }
 
@@ -387,19 +408,6 @@ public class ItemSelectPopup extends Screen {
         // Icon overlays on the Save/Discard buttons
         drawIconDiscard(graphics, discardButton.getX() + ACTION_BTN_W / 2, footerRowY + ACTION_BTN_H / 2, ICO_DISCARD);
         drawIconSave(graphics, saveButton.getX() + ACTION_BTN_W / 2, footerRowY + ACTION_BTN_H / 2, ICO_SAVE);
-    }
-
-    /** Flat fill with a light top/left, dark bottom/right 1px bevel */
-    private void drawBevelPanel(GuiGraphicsExtractor g, int x, int y, int w, int h, int bg) {
-        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, bg);
-        g.fill(x, y, x + w, y + 1, BORDER_LIGHT);                 // top
-        g.fill(x, y + h - 1, x + w, y + h, BORDER_DARK);          // bottom
-        g.fill(x, y, x + 1, y + h, BORDER_LIGHT);                 // left
-        g.fill(x + w - 1, y, x + w, y + h, BORDER_DARK);          // right
-        g.fill(x, y, x + 1, y + 1, BORDER_DARK);
-        g.fill(x + w - 1, y, x + w, y + 1, BORDER_DARK);
-        g.fill(x, y + h - 1, x + 1, y + h, BORDER_DARK);
-        g.fill(x + w - 1, y + h - 1, x + w, y + h, BORDER_DARK);
     }
 
     // ── Pixel-art icons ────────────────────────────────────────────────────────
