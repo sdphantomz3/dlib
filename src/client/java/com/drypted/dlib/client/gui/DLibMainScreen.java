@@ -26,17 +26,41 @@ public class DLibMainScreen extends Screen {
 
     @Override
     protected void init() {
-        ConfigManager.load();
+        // Preserve current mod selection across re-initializations (e.g. popup closes)
+        String previousMod = this.configListWidget != null ? this.configListWidget.getCurrentMod() : null;
+
+        // Only load from disk on first init; re-init (e.g. returning from popup)
+        // must NOT reload or it will overwrite in-memory changes made by the popup.
+        if (previousMod == null) {
+            ConfigManager.load();
+        }
 
         int leftPanelWidth = 140;
 
-        this.modListWidget = new ModListWidget(this, 0, 0, leftPanelWidth, this.height);
+        // Reuse existing widget instances to preserve their internal state
+        // (category expanded/collapsed, scroll position, etc.) across re-inits.
+        if (this.modListWidget == null) {
+            this.modListWidget = new ModListWidget(this, 0, 0, leftPanelWidth, this.height);
+        } else {
+            this.modListWidget.setWidth(leftPanelWidth);
+            this.modListWidget.setHeight(this.height);
+        }
         this.addRenderableWidget(this.modListWidget);
 
-        this.configListWidget = new ConfigListWidget(leftPanelWidth, 0, this.width - leftPanelWidth, this.height);
+        if (this.configListWidget == null) {
+            this.configListWidget = new ConfigListWidget(leftPanelWidth, 0, this.width - leftPanelWidth, this.height);
+        } else {
+            this.configListWidget.setWidth(this.width - leftPanelWidth);
+            this.configListWidget.setHeight(this.height);
+            this.configListWidget.setX(leftPanelWidth);
+            this.configListWidget.setY(0);
+        }
         this.addRenderableWidget(this.configListWidget);
 
-        if (initialModId != null && !initialModId.isEmpty()) {
+        if (previousMod != null) {
+            // Only rebuild rows if needed — setMod on the same instance preserves category state
+            this.configListWidget.refreshForSameMod();
+        } else if (initialModId != null && !initialModId.isEmpty()) {
             setSelectedMod(initialModId);
         }
     }

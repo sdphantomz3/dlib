@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
 
 public class RenderUtil {
 
@@ -58,5 +59,26 @@ public class RenderUtil {
      */
     public static void drawSprite(GuiGraphicsExtractor g, RenderPipeline pipeline, Identifier sprite, int x, int y, int width, int height) {
         g.blitSprite(pipeline, sprite, x, y, width, height);
+    }
+
+    /**
+     * Draws an item icon using the full 3D item model rendering.
+     *
+     * @param g      GuiGraphicsExtractor context
+     * @param stack  The ItemStack to render
+     * @param x      X position
+     * @param y      Y position
+     * @param width  Width in pixels (ignored; item renders at native size)
+     * @param height Height in pixels (ignored; item renders at native size)
+     */
+    public static void drawItemIcon(GuiGraphicsExtractor g, ItemStack stack, int x, int y, int width, int height) {
+        if (stack == null || stack.isEmpty()) return;
+        try {
+            g.fakeItem(stack, x, y);
+            g.itemDecorations(Minecraft.getInstance().font, stack, x, y, null);
+        } catch (Exception ignored) {
+            // Draw a fallback purple placeholder
+            g.fill(x, y, x + width, y + height, 0xFF8844AA);
+        }
     }
 }

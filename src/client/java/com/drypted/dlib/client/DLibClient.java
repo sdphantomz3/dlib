@@ -96,6 +96,30 @@ public class DLibClient implements ClientModInitializer {
 // ConfigManager.registerOption(mod1, "Combat Essentials", "Misc Settings", "Configuration Name",
 //         "combatessentials+misc+configname", "text", "Default", null,
 //         "Name of the active configuration profile.");
+
+// Single item select
+ConfigManager.registerOption(
+    "mymod", "My Mod", "Items", "Favorite Item",
+    "mymod+items+favorite", "item_select",
+    "minecraft:diamond",  // default value
+    List.of("minecraft:diamond", "minecraft:iron_ingot", "minecraft:gold_ingot"),
+    "Pick your favorite item"
+);
+
+// Multi item select
+ConfigManager.registerOption(
+    "mymod", "My Mod", "Items", "Allowed Blocks",
+    "mymod+items+blocks", "item_select_multi",
+    "minecraft:dirt,minecraft:stone",  // default (comma-separated)
+    List.of("minecraft:dirt", "minecraft:stone", "minecraft:grass_block", "minecraft:sand"),
+    "Select allowed blocks"
+);
+ConfigManager.registerOption(
+    "mymod", "Test 2", "Items", "Allowed Blocks",
+    "mymod+items+blocksa", "item_select_multi",
+    "minecraft:dirt,minecraft:stone",null,
+    "Select allowed blocks"
+);
         // Commit modifications to build the dynamic JSON architecture
         ConfigManager.load();
         LOGGER.info("DLib Initialized!.");

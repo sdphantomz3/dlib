@@ -57,10 +57,12 @@ public class ConfigListWidget extends AbstractWidget {
     // ── Mod loading ──────────────────────────────────────────────────────────
 
     public void setMod(String modName) {
+        // If switching to a different mod, clear category state.
+        // If same mod (e.g. re-init after popup), preserve expanded categories.
+        boolean sameMod = Objects.equals(this.currentMod, modName);
         this.currentMod = modName;
         this.scrollAmount = 0;
         this.categoryInfos.clear();
-        this.categoryExpanded.clear();
 
         if (modName == null) {
             this.configRows.clear();
@@ -78,9 +80,37 @@ public class ConfigListWidget extends AbstractWidget {
                 options.add(new OptionInfo(optEntry.getKey(), optEntry.getValue()));
             }
             categoryInfos.add(new CategoryInfo(catName, options));
-            categoryExpanded.put(catName, false);
+            // Preserve expanded state for same mod, default collapsed for new mod
+            if (!sameMod || !categoryExpanded.containsKey(catName)) {
+                categoryExpanded.put(catName, false);
+            }
         }
 
+        buildRows();
+    }
+
+    /**
+     * Rebuilds rows for the current mod without resetting category expansion state.
+     * Called when returning from a popup (e.g. ItemSelectPopup) to reflect updated values
+     * while keeping categories expanded/collapsed as the user left them.
+     */
+    public void refreshForSameMod() {
+        if (this.currentMod == null) return;
+
+        LinkedHashMap<String, LinkedHashMap<String, ConfigManager.ConfigOption>> structure =
+                ConfigManager.getStructureForMod(this.currentMod);
+
+        this.categoryInfos.clear();
+        for (Map.Entry<String, LinkedHashMap<String, ConfigManager.ConfigOption>> catEntry : structure.entrySet()) {
+            String catName = catEntry.getKey();
+            List<OptionInfo> options = new ArrayList<>();
+            for (Map.Entry<String, ConfigManager.ConfigOption> optEntry : catEntry.getValue().entrySet()) {
+                options.add(new OptionInfo(optEntry.getKey(), optEntry.getValue()));
+            }
+            categoryInfos.add(new CategoryInfo(catName, options));
+            // Keep existing expanded state; default to collapsed for new categories
+            categoryExpanded.putIfAbsent(catName, false);
+        }
         buildRows();
     }
 
@@ -145,6 +175,33 @@ public class ConfigListWidget extends AbstractWidget {
                             }
                         });
                         inputWidget = inputField;
+                    } else if (option.type.equals("item_select") || option.type.equals("item_select_multi")) {
+                        boolean isMulti = option.type.equals("item_select_multi");
+                        List<String> itemIds;
+                        if (option.choices != null && !option.choices.isEmpty()) {
+                            itemIds = option.choices;
+                        } else {
+                            // No explicit list provided — render all Minecraft items/blocks
+                            itemIds = new ArrayList<>();
+                            for (net.minecraft.world.item.Item item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+                                if (item != net.minecraft.world.item.Items.AIR) {
+                                    net.minecraft.resources.Identifier id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
+                                    if (id != null && "minecraft".equals(id.getNamespace())) {
+                                        itemIds.add(id.toString());
+                                    }
+                                }
+                            }
+                        }
+                        inputWidget = Button.builder(
+                                Component.literal(computeItemSelectLabel(option, isMulti)),
+                                (b) -> {
+                                    Minecraft.getInstance().gui.setScreen(new ItemSelectPopup(
+                                            Minecraft.getInstance().gui.screen(), option, isMulti, itemIds,
+                                            () -> b.setMessage(Component.literal(computeItemSelectLabel(option, isMulti)))
+                                    ));
+                                })
+                                .bounds(targetWidgetX, 0, 130, 20)
+                                .build();
                     }
 
                     configRows.add(new ConfigRow(null, key, inputWidget, false, runningRelativeY, 24, option.tooltip));
@@ -162,6 +219,43 @@ public class ConfigListWidget extends AbstractWidget {
         boolean current = categoryExpanded.getOrDefault(catName, false);
         categoryExpanded.put(catName, !current);
         buildRows();
+    }
+
+    private static String computeItemSelectLabel(ConfigManager.ConfigOption option, boolean multi) {
+        String val = option.value;
+        if (val == null || val.isEmpty()) {
+            return multi ? "Select Items..." : "Select Item...";
+        }
+        if (!multi) {
+            // Single: show short name of the one item
+            return shortNameFromId(val.trim());
+        }
+        // Multi: show count
+        String[] parts = val.split(",");
+        int count = 0;
+        for (String p : parts) {
+            if (!p.trim().isEmpty()) count++;
+        }
+        if (count == 0) return "Select Items...";
+        if (count == 1) {
+            for (String p : parts) {
+                String t = p.trim();
+                if (!t.isEmpty()) return shortNameFromId(t);
+            }
+        }
+        return count + " item" + (count != 1 ? "s" : "");
+    }
+
+    private static String shortNameFromId(String fullId) {
+        int colonIdx = fullId.indexOf(':');
+        if (colonIdx >= 0) {
+            String name = fullId.substring(colonIdx + 1);
+            if (!name.isEmpty()) {
+                name = Character.toUpperCase(name.charAt(0)) + name.substring(1);
+            }
+            return name.replace('_', ' ');
+        }
+        return fullId;
     }
 
     // ── Scroll ───────────────────────────────────────────────────────────────

@@ -31,9 +31,13 @@ public class ConfigManager {
      * @param category        Category within the mod
      * @param key             Option key within the category
      * @param uniqueKey       Globally unique key for this option (used with getOption)
-     * @param type            "toggle", "cycle", "text", "number"
-     * @param defaultValue    Default value as string
-     * @param choices         List of choices for "cycle" type (nullable)
+     * @param type            "toggle", "cycle", "text", "number", "item_select", "item_select_multi"
+     *                        - "item_select": single item picker (choices = list of item IDs like "minecraft:diamond")
+     *                        - "item_select_multi": multi-item picker (same choices format)
+     * @param defaultValue    Default value as string.
+     *                        For item_select types, use comma-separated item IDs (e.g. "minecraft:diamond,minecraft:iron_ingot")
+     * @param choices         List of choices for "cycle" type, or list of available item IDs for "item_select" types (nullable)
+     * @param tooltip         Optional hover tooltip text (nullable)
      */
     public static void registerOption(String modId, String modDisplayName, String category, String key,
                                       String uniqueKey, String type, String defaultValue,
