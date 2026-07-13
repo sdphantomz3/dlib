@@ -264,6 +264,115 @@ ConfigManager.registerAction(
 
 ---
 
+## `registerHeading` — Section label
+
+Adds a gold-colored **read-only** heading label that visually groups related settings.
+Headings can appear inside a category or at the top level (outside any category).
+They are **not persisted** to disk.
+
+### Signature
+
+```java
+// ── Inside a category ────────────────────────────────────
+ConfigManager.registerHeading(modId, modDisplayName, category, headingText);
+
+// ── Top‑level (no category) ──────────────────────────────
+ConfigManager.registerHeading(modId, modDisplayName, headingText);
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `modId` | `String` | Internal mod ID, e.g. `"mymod"`. |
+| `modDisplayName` | `String` | Display name in the GUI sidebar, e.g. `"My Mod"`. |
+| `category` | `String` | Category to place the heading in. `null` = top‑level. |
+| `headingText` | `String` | Text to display, e.g. `"Basic Settings"`. |
+
+### Examples
+
+```java
+// ── Inside a category ────────────────────────────────────
+ConfigManager.registerOption("mymod", "My Mod", "General", "Enabled",
+    "mymod+general+enabled", "toggle", "true", null);
+
+ConfigManager.registerHeading("mymod", "My Mod", "General", "─ Advanced ─");
+
+ConfigManager.registerOption("mymod", "My Mod", "General", "Speed",
+    "mymod+general+speed", "number", "1.0", null);
+
+// ── Top‑level, before all categories ─────────────────────
+ConfigManager.registerHeading("mymod", "My Mod", "Quick Settings");
+
+ConfigManager.registerOption("mymod", "My Mod", "Enabled",
+    "mymod+general+enabled", "toggle", "true", null);
+```
+
+The heading renders as **bold gold text** with a subtle highlight bar behind it.
+
+---
+
+## `registerSeparator` — Visual divider
+
+Adds a **yellow horizontal line** (2px) that visually separates settings above and below.
+Separators can appear inside a category or at the top level.
+They are **not persisted** to disk.
+
+### Signature
+
+```java
+// ── Inside a category ────────────────────────────────────
+ConfigManager.registerSeparator(modId, modDisplayName, category);
+
+// ── Top‑level (no category) ──────────────────────────────
+ConfigManager.registerSeparator(modId, modDisplayName);
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `modId` | `String` | Internal mod ID, e.g. `"mymod"`. |
+| `modDisplayName` | `String` | Display name in the GUI sidebar, e.g. `"My Mod"`. |
+| `category` | `String` | Category to place the separator in. `null` = top‑level. |
+
+### Examples
+
+```java
+// ── Inside a category, between option groups ─────────────
+ConfigManager.registerOption("mymod", "My Mod", "Visuals", "Particles",
+    "mymod+visuals+particles", "cycle", "Flame", List.of("Flame", "Smoke", "None"));
+
+ConfigManager.registerSeparator("mymod", "My Mod", "Visuals");
+
+ConfigManager.registerOption("mymod", "My Mod", "Visuals", "Color",
+    "mymod+visuals+color", "cycle", "Red", List.of("Red", "Blue", "Green"));
+
+// ── Top‑level, separating sections before categories ─────
+ConfigManager.registerHeading("mymod", "My Mod", "Quick Toggles");
+ConfigManager.registerOption("mymod", "My Mod", "Enabled",
+    "mymod+general+enabled", "toggle", "true", null);
+
+ConfigManager.registerSeparator("mymod", "My Mod");
+```
+
+---
+
+## Registering options without a category
+
+All registration methods have **no‑category overloads** for top‑level items
+that appear before the collapsible category sections:
+
+```java
+// registerOption without category
+ConfigManager.registerOption(modId, modDisplayName, key, uniqueKey, type, defaultValue, choices);
+ConfigManager.registerOption(modId, modDisplayName, key, uniqueKey, type, defaultValue, choices, tooltip);
+
+// registerAction without category
+ConfigManager.registerAction(modId, modDisplayName, key, uniqueKey, buttonLabel, callback);
+ConfigManager.registerAction(modId, modDisplayName, key, uniqueKey, buttonLabel, callback, tooltip);
+```
+
+Top‑level items render in registration order **above** all categories in the config panel.
+
+---
+
 ## `getOption` — Read an option at runtime
 
 ```java
@@ -295,6 +404,62 @@ if (opt != null) {
         opt.action.run();
     }
 }
+```
+
+---
+
+## `setOption` — Change an option's value from code
+
+Programmatically updates the value of a registered option at runtime.
+Useful for syncing external state or implementing code‑driven config changes.
+
+### Signatures
+
+```java
+// Set by unique key (string value — works for all option types)
+ConfigManager.setOption(uniqueKey, value);
+
+// Convenience overload for boolean toggles
+ConfigManager.setOption(uniqueKey, value);
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `uniqueKey` | `String` | The globally unique key used during registration. |
+| `value` | `String` / `boolean` | The new value. For toggles use `"true"` / `"false"` or the boolean overload. |
+
+### Behavior
+
+- If the `uniqueKey` is **not found**, a warning is logged and nothing happens.
+- If the option type is `"heading"`, `"separator"`, or `"action"`, a warning is logged (these types have no mutable value).
+- The change is **immediate in memory** — `getOption(uniqueKey).value` reflects the new value right away.
+- The change is **not automatically saved**. Call `ConfigManager.saveMod("mymod")` to persist.
+
+### Examples
+
+```java
+// ── Toggle on/off ────────────────────────────────────────
+ConfigManager.setOption("mymod+general+enabled", "false");
+ConfigManager.setOption("mymod+general+enabled", false);   // boolean overload
+
+// ── Change a cycle option ────────────────────────────────
+ConfigManager.setOption("mymod+visuals+particle", "Flame");
+
+// ── Change a number ──────────────────────────────────────
+ConfigManager.setOption("mymod+movement+speed", "3.0");
+
+// ── Change a text field ──────────────────────────────────
+ConfigManager.setOption("mymod+visuals+tag", "New Tag");
+
+// ── Change an item_select ────────────────────────────────
+ConfigManager.setOption("mymod+items+favorite", "minecraft:diamond");
+
+// ── Change item_select_multi ─────────────────────────────
+ConfigManager.setOption("mymod+items+blocks", "minecraft:dirt,minecraft:stone,minecraft:sand");
+
+// ── Persist after changes ────────────────────────────────
+ConfigManager.setOption("mymod+general+enabled", false);
+ConfigManager.saveMod("mymod");
 ```
 
 ---
@@ -342,7 +507,28 @@ public class MyModClient implements ClientModInitializer {
                 () -> MyMod.reloadConfiguration(),
                 "Reloads all configuration from an external source.");
 
-        // Load saved configs from disk
+        // ── Heading (inside a category) ─────────────────
+        ConfigManager.registerHeading(mod, "My Mod", "General", "─ Advanced ─");
+
+        // ── Separator (inside a category) ───────────────
+        ConfigManager.registerSeparator(mod, "My Mod", "General");
+
+        // ── Top‑level option (no category) ──────────────
+        ConfigManager.registerOption(mod, "My Mod", "Debug Mode",
+                "mymod+debug", "toggle", "false", null,
+                "Enable extra debug logging.");
+
+        // ── Top‑level heading ───────────────────────────
+        ConfigManager.registerHeading(mod, "My Mod", "Important");
+
+        // ── Top‑level separator ─────────────────────────
+        ConfigManager.registerSeparator(mod, "My Mod");
+
+        // ── Programmatic changes ────────────────────────
+        ConfigManager.setOption("mymod+general+enabled", true);
+        ConfigManager.setOption("mymod+general+speed", "2.0");
+
+        // Load saved configs from disk (overwrites setOption calls above)
         ConfigManager.load();
     }
 }
@@ -355,7 +541,9 @@ public class MyModClient implements ClientModInitializer {
 - **`uniqueKey`** must be globally unique across ALL mods. Convention: `"modid+category+key"` in lowercase with `+` separators.
 - **`choices`** for `item_select` types: if `null` or empty, the popup shows **all Minecraft items/blocks** automatically.
 - **`defaultValue`** for `item_select_multi`: use comma-separated IDs like `"minecraft:dirt,minecraft:stone"`.
-- **Action buttons** (`"action"` type) are **not persisted** — they have no value to save or load. Use `registerAction()` instead of `registerOption()`.
+- **Action buttons** (`"action"` type), **headings**, and **separators** are **not persisted** — they have no value to save or load.
 - **Action callbacks** run on the **render thread**. For long operations, use a background thread or `CompletableFuture`.
+- **Headings and separators** can be placed inside a category or at the top level (no category). Use them to visually organize complex config screens.
+- **`setOption`** changes are immediate in memory but **not auto‑saved**. Call `ConfigManager.saveMod("mymod")` after programmatic changes to persist them.
 - Call `ConfigManager.load()` **after** registering all options to load saved values from disk.
 - The config GUI opens from the pause screen (gear icon) or via ModMenu integration.

@@ -21,7 +21,8 @@ public class ConfigListWidget extends AbstractWidget {
     private String currentMod = null;
     private final List<ConfigRow> configRows = new ArrayList<>();
     private final Map<String, Boolean> categoryExpanded = new HashMap<>();
-    private List<CategoryInfo> categoryInfos = new ArrayList<>();
+    private final List<CategoryInfo> categoryInfos = new ArrayList<>();
+    private final List<OptionInfo> topLevelOptionInfos = new ArrayList<>(); // items outside any category
 
     private double scrollAmount = 0;
     private int totalContentHeight = 0;
@@ -73,16 +74,24 @@ public class ConfigListWidget extends AbstractWidget {
         LinkedHashMap<String, LinkedHashMap<String, ConfigManager.ConfigOption>> structure =
                 ConfigManager.getStructureForMod(modName);
 
+        this.categoryInfos.clear();
+        this.topLevelOptionInfos.clear();
+
         for (Map.Entry<String, LinkedHashMap<String, ConfigManager.ConfigOption>> catEntry : structure.entrySet()) {
             String catName = catEntry.getKey();
             List<OptionInfo> options = new ArrayList<>();
             for (Map.Entry<String, ConfigManager.ConfigOption> optEntry : catEntry.getValue().entrySet()) {
                 options.add(new OptionInfo(optEntry.getKey(), optEntry.getValue()));
             }
-            categoryInfos.add(new CategoryInfo(catName, options));
-            // Preserve expanded state for same mod, default collapsed for new mod
-            if (!sameMod || !categoryExpanded.containsKey(catName)) {
-                categoryExpanded.put(catName, false);
+            // Empty-string category = top‑level items, rendered outside any collapsible category
+            if (catName.isEmpty()) {
+                this.topLevelOptionInfos.addAll(options);
+            } else {
+                categoryInfos.add(new CategoryInfo(catName, options));
+                // Preserve expanded state for same mod, default collapsed for new mod
+                if (!sameMod || !categoryExpanded.containsKey(catName)) {
+                    categoryExpanded.put(catName, false);
+                }
             }
         }
 
@@ -101,15 +110,20 @@ public class ConfigListWidget extends AbstractWidget {
                 ConfigManager.getStructureForMod(this.currentMod);
 
         this.categoryInfos.clear();
+        this.topLevelOptionInfos.clear();
         for (Map.Entry<String, LinkedHashMap<String, ConfigManager.ConfigOption>> catEntry : structure.entrySet()) {
             String catName = catEntry.getKey();
             List<OptionInfo> options = new ArrayList<>();
             for (Map.Entry<String, ConfigManager.ConfigOption> optEntry : catEntry.getValue().entrySet()) {
                 options.add(new OptionInfo(optEntry.getKey(), optEntry.getValue()));
             }
-            categoryInfos.add(new CategoryInfo(catName, options));
-            // Keep existing expanded state; default to collapsed for new categories
-            categoryExpanded.putIfAbsent(catName, false);
+            if (catName.isEmpty()) {
+                this.topLevelOptionInfos.addAll(options);
+            } else {
+                categoryInfos.add(new CategoryInfo(catName, options));
+                // Keep existing expanded state; default to collapsed for new categories
+                categoryExpanded.putIfAbsent(catName, false);
+            }
         }
         buildRows();
     }
@@ -119,8 +133,27 @@ public class ConfigListWidget extends AbstractWidget {
         int runningRelativeY = 0;
         Minecraft mc = Minecraft.getInstance();
 
+        // ── Top‑level items (outside any category) ────────────────────────────
+        for (OptionInfo optInfo : topLevelOptionInfos) {
+            final ConfigManager.ConfigOption option = optInfo.option;
+
+            if (option.type.equals("heading")) {
+                configRows.add(new ConfigRow(null, null, null, false, runningRelativeY, 18, null,
+                        true, false, option.value));
+                runningRelativeY += 18;
+            } else if (option.type.equals("separator")) {
+                configRows.add(new ConfigRow(null, null, null, false, runningRelativeY, 12, null,
+                        false, true, null));
+                runningRelativeY += 12;
+            }
+        }
+        // small gap after top-level items before first category
+        if (!topLevelOptionInfos.isEmpty()) runningRelativeY += 4;
+
+        // ── Categories ────────────────────────────────────────────────────────
         for (CategoryInfo cat : categoryInfos) {
-            configRows.add(new ConfigRow(cat.name, null, null, true, runningRelativeY, 20, null));
+            configRows.add(new ConfigRow(cat.name, null, null, true, runningRelativeY, 20, null,
+                    false, false, null));
             runningRelativeY += 20;
 
             if (categoryExpanded.getOrDefault(cat.name, false)) {
@@ -130,7 +163,17 @@ public class ConfigListWidget extends AbstractWidget {
                     AbstractWidget inputWidget = null;
                     int targetWidgetX = this.getX() + this.width - 170;
 
-                    if (option.type.equals("toggle")) {
+                    if (option.type.equals("heading")) {
+                        configRows.add(new ConfigRow(null, null, null, false, runningRelativeY, 18, null,
+                                true, false, option.value));
+                        runningRelativeY += 18;
+                        continue;
+                    } else if (option.type.equals("separator")) {
+                        configRows.add(new ConfigRow(null, null, null, false, runningRelativeY, 12, null,
+                                false, true, null));
+                        runningRelativeY += 12;
+                        continue;
+                    } else if (option.type.equals("toggle")) {
                         inputWidget = Button.builder(
                                 Component.literal(Boolean.parseBoolean(option.value) ? "ON" : "OFF"),
                                 (b) -> {
@@ -215,7 +258,8 @@ public class ConfigListWidget extends AbstractWidget {
                                 .build();
                     }
 
-                    configRows.add(new ConfigRow(null, key, inputWidget, false, runningRelativeY, 24, option.tooltip));
+                    configRows.add(new ConfigRow(null, key, inputWidget, false, runningRelativeY, 24, option.tooltip,
+                            false, false, null));
                     runningRelativeY += 24;
                 }
                 runningRelativeY += 8;
@@ -340,6 +384,22 @@ public class ConfigListWidget extends AbstractWidget {
                 }
                 RenderUtil.drawScaledText(graphics, row.categoryName,
                         1.1f, this.getX() + 40, rowScreenY + 5, color, 1.0f, true);
+            } else if (row.isHeading) {
+                // ── Heading row ──
+                // Draw a subtle background bar to make headings stand out
+                int barLeft = this.getX() + 14;
+                int barRight = this.getX() + this.width - 14;
+                graphics.fill(barLeft, rowScreenY, barRight, rowScreenY + row.height, 0x18FFCC00);
+                // Gold/bold heading text
+                RenderUtil.drawScaledText(graphics, row.headingText,
+                        1.1f, this.getX() + 22, rowScreenY + 4, 0xFFFFCC00, 1.0f, true);
+            } else if (row.isSeparator) {
+                // ── Separator row ──
+                int sepLeft = this.getX() + 18;
+                int sepRight = this.getX() + this.width - 18;
+                int sepY = rowScreenY + row.height / 2;
+                // Yellow line (2px tall)
+                graphics.fill(sepLeft, sepY, sepRight, sepY + 2, 0xFFFFFF00);
             } else {
                 int widgetX = this.getX() + this.width - 170;
                 int labelX = this.getX() + 20;
@@ -660,15 +720,22 @@ public class ConfigListWidget extends AbstractWidget {
         final String optionKey;
         final AbstractWidget widget;
         final boolean isCategory;
+        final boolean isHeading;
+        final boolean isSeparator;
+        final String headingText;
         final int relativeY;
         final int height;
         final String tooltip;
 
-        ConfigRow(String catName, String key, AbstractWidget widget, boolean isCategory, int relativeY, int height, String tooltip) {
+        ConfigRow(String catName, String key, AbstractWidget widget, boolean isCategory, int relativeY, int height, String tooltip,
+                  boolean isHeading, boolean isSeparator, String headingText) {
             this.categoryName = catName;
             this.optionKey = key;
             this.widget = widget;
             this.isCategory = isCategory;
+            this.isHeading = isHeading;
+            this.isSeparator = isSeparator;
+            this.headingText = headingText;
             this.relativeY = relativeY;
             this.height = height;
             this.tooltip = tooltip;

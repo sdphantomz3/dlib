@@ -45,9 +45,10 @@ public class ConfigManager {
                                       List<String> choices, String tooltip) {
         MOD_DISPLAY_NAMES.put(modId, modDisplayName);
         ConfigOption opt = new ConfigOption(type, defaultValue, defaultValue, choices, tooltip, null);
+        String cat = category != null ? category : "";
 
         REGISTRY.computeIfAbsent(modId, k -> new LinkedHashMap<>())
-                .computeIfAbsent(category, k -> new LinkedHashMap<>())
+                .computeIfAbsent(cat, k -> new LinkedHashMap<>())
                 .put(key, opt);
 
         if (OPTION_MAP.containsKey(uniqueKey)) {
@@ -60,6 +61,25 @@ public class ConfigManager {
                                       String uniqueKey, String type, String defaultValue,
                                       List<String> choices) {
         registerOption(modId, modDisplayName, category, key, uniqueKey, type, defaultValue, choices, null);
+    }
+
+    /**
+     * Register an option at the top level (outside any category).
+     * @see #registerOption(String, String, String, String, String, String, String, List, String)
+     */
+    public static void registerOption(String modId, String modDisplayName, String key,
+                                      String uniqueKey, String type, String defaultValue,
+                                      List<String> choices, String tooltip) {
+        registerOption(modId, modDisplayName, null, key, uniqueKey, type, defaultValue, choices, tooltip);
+    }
+
+    /**
+     * Register an option at the top level without a tooltip.
+     */
+    public static void registerOption(String modId, String modDisplayName, String key,
+                                      String uniqueKey, String type, String defaultValue,
+                                      List<String> choices) {
+        registerOption(modId, modDisplayName, null, key, uniqueKey, type, defaultValue, choices, null);
     }
 
     /**
@@ -81,9 +101,10 @@ public class ConfigManager {
                                       String uniqueKey, String buttonLabel, Runnable callback, String tooltip) {
         MOD_DISPLAY_NAMES.put(modId, modDisplayName);
         ConfigOption opt = new ConfigOption("action", buttonLabel, buttonLabel, null, tooltip, callback);
+        String cat = category != null ? category : "";
 
         REGISTRY.computeIfAbsent(modId, k -> new LinkedHashMap<>())
-                .computeIfAbsent(category, k -> new LinkedHashMap<>())
+                .computeIfAbsent(cat, k -> new LinkedHashMap<>())
                 .put(key, opt);
 
         if (OPTION_MAP.containsKey(uniqueKey)) {
@@ -102,10 +123,116 @@ public class ConfigManager {
     }
 
     /**
+     * Register an action at the top level (outside any category).
+     * @see #registerAction(String, String, String, String, String, String, Runnable, String)
+     */
+    public static void registerAction(String modId, String modDisplayName, String key,
+                                      String uniqueKey, String buttonLabel, Runnable callback, String tooltip) {
+        registerAction(modId, modDisplayName, null, key, uniqueKey, buttonLabel, callback, tooltip);
+    }
+
+    /**
+     * Register an action at the top level without a tooltip.
+     */
+    public static void registerAction(String modId, String modDisplayName, String key,
+                                      String uniqueKey, String buttonLabel, Runnable callback) {
+        registerAction(modId, modDisplayName, null, key, uniqueKey, buttonLabel, callback, null);
+    }
+
+    // ── Headings ─────────────────────────────────────────────────────────────
+
+    /**
+     * Register a heading / section label inside a category.
+     * <p>
+     * Headings are read‑only text labels that appear between options to visually
+     * group related settings. They are not persisted to disk.
+     *
+     * @param modId           Internal mod identifier
+     * @param modDisplayName  Human‑readable name shown in the GUI
+     * @param category        Category within the mod (null for top‑level)
+     * @param headingText     Text to display as the heading
+     */
+    public static void registerHeading(String modId, String modDisplayName, String category, String headingText) {
+        MOD_DISPLAY_NAMES.put(modId, modDisplayName);
+        ConfigOption opt = new ConfigOption("heading", headingText, headingText, null, null, null);
+        String key = "__hdg_" + headingText.hashCode() + "_" + System.nanoTime();
+        REGISTRY.computeIfAbsent(modId, k -> new LinkedHashMap<>())
+                .computeIfAbsent(category != null ? category : "", k -> new LinkedHashMap<>())
+                .put(key, opt);
+    }
+
+    /**
+     * Register a heading at the top level (outside any category).
+     * @see #registerHeading(String, String, String, String)
+     */
+    public static void registerHeading(String modId, String modDisplayName, String headingText) {
+        registerHeading(modId, modDisplayName, null, headingText);
+    }
+
+    // ── Separators ───────────────────────────────────────────────────────────
+
+    /**
+     * Register a visual separator line inside a category.
+     * <p>
+     * Separators are horizontal yellow lines that visually divide settings
+     * into logical sections. They are not persisted to disk.
+     *
+     * @param modId           Internal mod identifier
+     * @param modDisplayName  Human‑readable name shown in the GUI
+     * @param category        Category within the mod (null for top‑level)
+     */
+    public static void registerSeparator(String modId, String modDisplayName, String category) {
+        MOD_DISPLAY_NAMES.put(modId, modDisplayName);
+        ConfigOption opt = new ConfigOption("separator", "", "", null, null, null);
+        String key = "__sep_" + System.nanoTime();
+        REGISTRY.computeIfAbsent(modId, k -> new LinkedHashMap<>())
+                .computeIfAbsent(category != null ? category : "", k -> new LinkedHashMap<>())
+                .put(key, opt);
+    }
+
+    /**
+     * Register a separator at the top level (outside any category).
+     * @see #registerSeparator(String, String, String)
+     */
+    public static void registerSeparator(String modId, String modDisplayName) {
+        registerSeparator(modId, modDisplayName, null);
+    }
+
+    /**
      * Retrieve a ConfigOption by its unique key.
      */
     public static ConfigOption getOption(String uniqueKey) {
         return OPTION_MAP.get(uniqueKey);
+    }
+
+    /**
+     * Programmatically set the value of a registered option by its unique key.
+     * Has no effect if the key is not found or the option is a non‑persisted type
+     * (heading / separator / action).
+     *
+     * @param uniqueKey  The globally unique key used during registration.
+     * @param value      The new value as a string (for toggles use "true" / "false").
+     */
+    public static void setOption(String uniqueKey, String value) {
+        ConfigOption opt = OPTION_MAP.get(uniqueKey);
+        if (opt == null) {
+            System.err.println("[DLib] setOption: unknown key '" + uniqueKey + "'");
+            return;
+        }
+        if (opt.type.equals("heading") || opt.type.equals("separator") || opt.type.equals("action")) {
+            System.err.println("[DLib] setOption: cannot set value of '" + opt.type + "' type (key='" + uniqueKey + "')");
+            return;
+        }
+        opt.value = value;
+    }
+
+    /**
+     * Convenience overload for boolean (toggle) options.
+     * @param uniqueKey  The globally unique key of a toggle option.
+     * @param value      The new boolean state.
+     */
+    public static void setOption(String uniqueKey, boolean value) {
+        setOption(uniqueKey, String.valueOf(value));
     }
 
     /**
@@ -145,7 +272,8 @@ public class ConfigManager {
                         if (catJson.has(key)) {
                             JsonElement valueElem = catJson.get(key);
                             ConfigOption option = options.get(key);
-                            if (option.type.equals("action")) continue; // action buttons have no persisted value
+                            if (option.type.equals("action") || option.type.equals("heading") || option.type.equals("separator"))
+                                continue; // not persisted
                             if (option.type.equals("toggle") && valueElem.isJsonPrimitive()) {
                                 option.value = String.valueOf(valueElem.getAsBoolean());
                             } else if (valueElem.isJsonPrimitive()) {
@@ -173,7 +301,8 @@ public class ConfigManager {
                 JsonObject catJson = new JsonObject();
                 for (Map.Entry<String, ConfigOption> optEntry : catEntry.getValue().entrySet()) {
                     ConfigOption opt = optEntry.getValue();
-                    if (opt.type.equals("action")) continue; // action buttons have no persisted value
+                    if (opt.type.equals("action") || opt.type.equals("heading") || opt.type.equals("separator"))
+                        continue; // not persisted
                     if (opt.type.equals("toggle")) {
                         catJson.addProperty(optEntry.getKey(), Boolean.parseBoolean(opt.value));
                     } else {

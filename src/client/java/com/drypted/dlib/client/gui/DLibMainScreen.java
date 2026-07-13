@@ -78,9 +78,10 @@ public class DLibMainScreen extends Screen {
         }
     }
 
-    /** Called by ModListWidget action bar — save current mod config */
+    /** Called by ModListWidget action bar — save current mod config and close */
     public void onSave() {
         if (this.configListWidget != null) this.configListWidget.saveCurrentMod();
+        this.onClose();
     }
 
     /** Called by ModListWidget action bar — discard unsaved changes and close */
@@ -89,9 +90,12 @@ public class DLibMainScreen extends Screen {
         this.onClose();
     }
 
-    /** Called by ModListWidget action bar — reset to factory defaults */
+    /** Called by ModListWidget action bar — reset to factory defaults and auto-save */
     public void onResetDefaults() {
-        if (this.configListWidget != null) this.configListWidget.resetCurrentModDefaults();
+        if (this.configListWidget != null) {
+            this.configListWidget.resetCurrentModDefaults();
+            this.configListWidget.saveCurrentMod();
+        }
     }
 
     /** Whether a mod is currently selected (used to show/hide action bar) */
