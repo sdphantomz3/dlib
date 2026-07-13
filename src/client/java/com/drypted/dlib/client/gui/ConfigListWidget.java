@@ -135,17 +135,107 @@ public class ConfigListWidget extends AbstractWidget {
 
         // ── Top‑level items (outside any category) ────────────────────────────
         for (OptionInfo optInfo : topLevelOptionInfos) {
+            final String key = optInfo.key;
             final ConfigManager.ConfigOption option = optInfo.option;
+            AbstractWidget inputWidget = null;
+            int targetWidgetX = this.getX() + this.width - 170;
 
             if (option.type.equals("heading")) {
                 configRows.add(new ConfigRow(null, null, null, false, runningRelativeY, 18, null,
                         true, false, option.value));
                 runningRelativeY += 18;
+                continue;
             } else if (option.type.equals("separator")) {
                 configRows.add(new ConfigRow(null, null, null, false, runningRelativeY, 12, null,
                         false, true, null));
                 runningRelativeY += 12;
+                continue;
+            } else if (option.type.equals("toggle")) {
+                inputWidget = Button.builder(
+                        Component.literal(Boolean.parseBoolean(option.value) ? "ON" : "OFF"),
+                        (b) -> {
+                            boolean state = !Boolean.parseBoolean(option.value);
+                            option.value = String.valueOf(state);
+                            b.setMessage(Component.literal(state ? "ON" : "OFF"));
+                        })
+                        .bounds(targetWidgetX, 0, 130, 20)
+                        .build();
+            } else if (option.type.equals("action")) {
+                inputWidget = Button.builder(
+                        Component.literal(option.value),
+                        (b) -> {
+                            if (option.action != null) {
+                                option.action.run();
+                            }
+                        })
+                        .bounds(targetWidgetX, 0, 130, 20)
+                        .build();
+            } else if (option.type.equals("cycle")) {
+                inputWidget = Button.builder(
+                        Component.literal(option.value),
+                        (b) -> {
+                            int index = option.choices.indexOf(option.value);
+                            int nextIndex = (index + 1) % option.choices.size();
+                            option.value = option.choices.get(nextIndex);
+                            b.setMessage(Component.literal(option.value));
+                        })
+                        .bounds(targetWidgetX, 0, 130, 20)
+                        .build();
+            } else if (option.type.equals("text") || option.type.equals("number")) {
+                EditBox inputField = new EditBox(mc.font, targetWidgetX, 0, 130, 18, Component.empty());
+                inputField.setValue(option.value);
+                inputField.setResponder(new Consumer<String>() {
+                    private String lastValidValue = option.value;
+                    private boolean isReverting = false;
+
+                    @Override
+                    public void accept(String newValue) {
+                        if (isReverting) return;
+                        if (option.type.equals("number")) {
+                            if (!newValue.isEmpty() && !newValue.equals("-") && !newValue.equals(".") &&
+                                    !newValue.equals("-.") && !newValue.matches("^-?\\d*\\.?\\d*$")) {
+                                isReverting = true;
+                                inputField.setValue(lastValidValue);
+                                isReverting = false;
+                                return;
+                            }
+                        }
+                        lastValidValue = newValue;
+                        option.value = newValue;
+                    }
+                });
+                inputWidget = inputField;
+            } else if (option.type.equals("item_select") || option.type.equals("item_select_multi")) {
+                boolean isMulti = option.type.equals("item_select_multi");
+                List<String> itemIds;
+                if (option.choices != null && !option.choices.isEmpty()) {
+                    itemIds = option.choices;
+                } else {
+                    itemIds = new ArrayList<>();
+                    for (net.minecraft.world.item.Item item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+                        if (item != net.minecraft.world.item.Items.AIR) {
+                            net.minecraft.resources.Identifier id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
+                            if (id != null && "minecraft".equals(id.getNamespace())) {
+                                itemIds.add(id.toString());
+                            }
+                        }
+                    }
+                }
+                inputWidget = Button.builder(
+                        Component.literal(computeItemSelectLabel(option, isMulti)),
+                        (b) -> {
+                            Minecraft.getInstance().gui.setScreen(new ItemSelectPopup(
+                                    Minecraft.getInstance().gui.screen(), option, isMulti, itemIds,
+                                    () -> b.setMessage(Component.literal(computeItemSelectLabel(option, isMulti)))
+                            ));
+                        })
+                        .bounds(targetWidgetX, 0, 130, 20)
+                        .build();
             }
+
+            configRows.add(new ConfigRow(null, key, inputWidget, false, runningRelativeY, 24, option.tooltip,
+                    false, false, null));
+            runningRelativeY += 24;
         }
         // small gap after top-level items before first category
         if (!topLevelOptionInfos.isEmpty()) runningRelativeY += 4;

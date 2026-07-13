@@ -12,7 +12,7 @@ Called during mod/client initialization (before `ConfigManager.load()`).
 ConfigManager.registerOption(
     modId,          // String  — Internal mod identifier (used for file names)
     modDisplayName, // String  — Human-readable name shown in the GUI sidebar
-    category,       // String  — Group/category name in config UI
+    category,       // String  — Group/category name. Pass null for top‑level (no category).
     key,            // String  — Option label within the category
     uniqueKey,      // String  — Globally unique key (used with getOption)
     type,           // String  — One of: "toggle", "cycle", "text", "number", "item_select", "item_select_multi", "action"
@@ -31,7 +31,7 @@ ConfigManager.registerOption(modId, modDisplayName, category, key, uniqueKey, ty
 |---|---|---|
 | `modId` | `String` | Internal mod ID, e.g. `"mymod"`. Used for the JSON filename (`config/dlib/mymod.json`). |
 | `modDisplayName` | `String` | Display name in the GUI sidebar, e.g. `"My Mod"`. |
-| `category` | `String` | Collapsible category heading, e.g. `"Items"`. |
+| `category` | `String` | Collapsible category heading, e.g. `"Items"`. Pass `null` or use the no‑category overload to place the option **outside any category** (rendered at the top of the config panel). |
 | `key` | `String` | Label for this option, e.g. `"Favorite Item"`. |
 | `uniqueKey` | `String` | Globally-unique key for runtime lookup via `getOption()`. Convention: `"modid+category+key"` (lowercase, `+` separators). |
 | `type` | `String` | `"toggle"`, `"cycle"`, `"text"`, `"number"`, `"item_select"`, `"item_select_multi"`, or `"action"`. |
@@ -203,7 +203,7 @@ Use `registerAction` instead of `registerOption`:
 ConfigManager.registerAction(
     modId,          // String  — Internal mod identifier
     modDisplayName, // String  — Human-readable name in GUI sidebar
-    category,       // String  — Group/category name
+    category,       // String  — Group/category name. Pass null for top‑level (no category).
     key,            // String  — Option key within the category
     uniqueKey,      // String  — Globally unique key
     buttonLabel,    // String  — Text shown on the button
@@ -255,7 +255,7 @@ ConfigManager.registerAction(
 |---|---|---|
 | `modId` | `String` | Internal mod ID, e.g. `"mymod"`. |
 | `modDisplayName` | `String` | Display name in the GUI sidebar, e.g. `"My Mod"`. |
-| `category` | `String` | Collapsible category heading, e.g. `"Actions"`. |
+| `category` | `String` | Collapsible category heading, e.g. `"Actions"`. Pass `null` or use the no‑category overload for top‑level items. |
 | `key` | `String` | Label for this option, e.g. `"Reload Data"`. |
 | `uniqueKey` | `String` | Globally-unique key. Convention: `"modid+category+key"`. |
 | `buttonLabel` | `String` | Text displayed on the button in the GUI, e.g. `"Reload"`. |
@@ -284,7 +284,7 @@ ConfigManager.registerHeading(modId, modDisplayName, headingText);
 |---|---|---|
 | `modId` | `String` | Internal mod ID, e.g. `"mymod"`. |
 | `modDisplayName` | `String` | Display name in the GUI sidebar, e.g. `"My Mod"`. |
-| `category` | `String` | Category to place the heading in. `null` = top‑level. |
+| `category` | `String` | Category to place the heading in. Pass `null` or use the no‑category overload for top‑level. |
 | `headingText` | `String` | Text to display, e.g. `"Basic Settings"`. |
 
 ### Examples
@@ -330,7 +330,7 @@ ConfigManager.registerSeparator(modId, modDisplayName);
 |---|---|---|
 | `modId` | `String` | Internal mod ID, e.g. `"mymod"`. |
 | `modDisplayName` | `String` | Display name in the GUI sidebar, e.g. `"My Mod"`. |
-| `category` | `String` | Category to place the separator in. `null` = top‑level. |
+| `category` | `String` | Category to place the separator in. Pass `null` or use the no‑category overload for top‑level. |
 
 ### Examples
 
@@ -354,22 +354,46 @@ ConfigManager.registerSeparator("mymod", "My Mod");
 
 ---
 
-## Registering options without a category
+## Registering options without a category (top‑level)
 
-All registration methods have **no‑category overloads** for top‑level items
-that appear before the collapsible category sections:
+To register an option that appears **outside** any collapsible category (rendered at the top
+of the config panel, above all category sections), pass `null` for the `category` parameter
+or use the no‑category convenience overloads:
 
 ```java
-// registerOption without category
+// ── Explicit: pass null for category ────────────────────
+ConfigManager.registerOption(modId, modDisplayName, null, key, uniqueKey, type, defaultValue, choices, tooltip);
+ConfigManager.registerAction(modId, modDisplayName, null, key, uniqueKey, buttonLabel, callback, tooltip);
+
+// ── Convenience overloads (omit category) ───────────────
 ConfigManager.registerOption(modId, modDisplayName, key, uniqueKey, type, defaultValue, choices);
 ConfigManager.registerOption(modId, modDisplayName, key, uniqueKey, type, defaultValue, choices, tooltip);
-
-// registerAction without category
 ConfigManager.registerAction(modId, modDisplayName, key, uniqueKey, buttonLabel, callback);
 ConfigManager.registerAction(modId, modDisplayName, key, uniqueKey, buttonLabel, callback, tooltip);
 ```
 
+All option types (`toggle`, `cycle`, `text`, `number`, `item_select`, `item_select_multi`,
+`action`) are fully supported at the top level. Headings and separators also work without
+a category.
+
 Top‑level items render in registration order **above** all categories in the config panel.
+
+### Example
+
+```java
+// Top‑level heading, toggle, and separator before any categories
+ConfigManager.registerHeading("mymod", "My Mod", "Quick Settings");
+
+ConfigManager.registerOption("mymod", "My Mod", null, "Debug Mode",
+        "mymod+debug", "toggle", "false", null,
+        "Enable extra debug logging.");
+
+ConfigManager.registerSeparator("mymod", "My Mod");
+
+// Now register categorized options as usual
+ConfigManager.registerOption("mymod", "My Mod", "General", "Enabled",
+        "mymod+general+enabled", "toggle", "true", null);
+```
 
 ---
 
@@ -513,8 +537,8 @@ public class MyModClient implements ClientModInitializer {
         // ── Separator (inside a category) ───────────────
         ConfigManager.registerSeparator(mod, "My Mod", "General");
 
-        // ── Top‑level option (no category) ──────────────
-        ConfigManager.registerOption(mod, "My Mod", "Debug Mode",
+        // ── Top‑level option (category = null) ─────────
+        ConfigManager.registerOption(mod, "My Mod", null, "Debug Mode",
                 "mymod+debug", "toggle", "false", null,
                 "Enable extra debug logging.");
 
@@ -543,7 +567,8 @@ public class MyModClient implements ClientModInitializer {
 - **`defaultValue`** for `item_select_multi`: use comma-separated IDs like `"minecraft:dirt,minecraft:stone"`.
 - **Action buttons** (`"action"` type), **headings**, and **separators** are **not persisted** — they have no value to save or load.
 - **Action callbacks** run on the **render thread**. For long operations, use a background thread or `CompletableFuture`.
-- **Headings and separators** can be placed inside a category or at the top level (no category). Use them to visually organize complex config screens.
+- **Headings and separators** can be placed inside a category or at the top level (pass `null` for category, or use the no‑category overload). Use them to visually organize complex config screens.
+- **All option types** (`toggle`, `cycle`, `text`, `number`, `item_select`, `item_select_multi`, `action`) work both inside categories and at the top level.
 - **`setOption`** changes are immediate in memory but **not auto‑saved**. Call `ConfigManager.saveMod("mymod")` after programmatic changes to persist them.
 - Call `ConfigManager.load()` **after** registering all options to load saved values from disk.
 - The config GUI opens from the pause screen (gear icon) or via ModMenu integration.
