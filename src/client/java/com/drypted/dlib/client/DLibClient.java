@@ -17,7 +17,7 @@ public class DLibClient implements ClientModInitializer {
      * Set to {@code true} to register demo/test config entries that showcase
      * every feature of the DLib Config API.  Set to {@code false} in production.
      */
-    private static final boolean TEST_FEATURES = true;
+    private static final boolean TEST_FEATURES = false;
 
     @Override
     public void onInitializeClient() {
