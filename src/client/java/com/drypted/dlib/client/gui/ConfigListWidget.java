@@ -3,7 +3,7 @@ package com.drypted.dlib.client.gui;
 import com.drypted.dlib.client.config.ConfigManager;
 import com.drypted.dlib.client.util.RenderUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -224,8 +224,8 @@ public class ConfigListWidget extends AbstractWidget {
                 inputWidget = Button.builder(
                         Component.literal(computeItemSelectLabel(option, isMulti)),
                         (b) -> {
-                            Minecraft.getInstance().gui.setScreen(new ItemSelectPopup(
-                                    Minecraft.getInstance().gui.screen(), option, isMulti, itemIds,
+                            Minecraft.getInstance().setScreen(new ItemSelectPopup(
+                                    Minecraft.getInstance().screen, option, isMulti, itemIds,
                                     () -> b.setMessage(Component.literal(computeItemSelectLabel(option, isMulti)))
                             ));
                         })
@@ -339,8 +339,8 @@ public class ConfigListWidget extends AbstractWidget {
                         inputWidget = Button.builder(
                                 Component.literal(computeItemSelectLabel(option, isMulti)),
                                 (b) -> {
-                                    Minecraft.getInstance().gui.setScreen(new ItemSelectPopup(
-                                            Minecraft.getInstance().gui.screen(), option, isMulti, itemIds,
+                                    Minecraft.getInstance().setScreen(new ItemSelectPopup(
+                                            Minecraft.getInstance().screen, option, isMulti, itemIds,
                                             () -> b.setMessage(Component.literal(computeItemSelectLabel(option, isMulti)))
                                     ));
                                 })
@@ -424,7 +424,7 @@ public class ConfigListWidget extends AbstractWidget {
     // ── Render ───────────────────────────────────────────────────────────────
 
     @Override
-    public void extractWidgetRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         if (this.currentMod == null) {
             RenderUtil.drawScaledText(graphics, "Select a mod from the left sidebar.",
@@ -530,7 +530,7 @@ public class ConfigListWidget extends AbstractWidget {
                 // Draw the input widget
                 if (row.widget != null) {
                     row.widget.setY(rowScreenY + (row.height - row.widget.getHeight()) / 2);
-                    row.widget.extractRenderState(graphics, mouseX, mouseY, partialTick);
+                    row.widget.render(graphics, mouseX, mouseY, partialTick);
                 }
             }
         }
@@ -558,7 +558,7 @@ public class ConfigListWidget extends AbstractWidget {
     /**
      * Draws a tooltip popup with dark background, light border, and text wrapping.
      */
-    private void drawTooltip(GuiGraphicsExtractor g, String text, int x, int y) {
+    private void drawTooltip(GuiGraphics g, String text, int x, int y) {
         Minecraft mc = Minecraft.getInstance();
         int maxWidth = Math.min(200, this.width / 2); // wrap at half the widget width, max 200px
         List<String> lines = new ArrayList<>();
@@ -638,7 +638,7 @@ public class ConfigListWidget extends AbstractWidget {
 
     // ── Toast ─────────────────────────────────────────────────────────────────
 
-    private void drawToast(GuiGraphicsExtractor g) {
+    private void drawToast(GuiGraphics g) {
         if (!toastActive) return;
 
         long now     = Util.getMillis();

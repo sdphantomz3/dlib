@@ -1,6 +1,6 @@
 package com.drypted.dlib.client.mixin;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -60,17 +60,17 @@ public class PauseScreenMixin extends Screen {
             iconX, iconY,
             iconSize, iconSize,
             gearSprites,
-            button -> this.minecraft.gui.setScreen(new DLibMainScreen(this))
+            button -> this.minecraft.setScreen(new DLibMainScreen(this))
         );
 
         // Add the button as a widget
         this.addRenderableWidget(configButton);
 
         // Add the label as a Renderable – no widget overhead
-        this.addRenderableOnly((GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) -> {
-            // If GuiGraphicsExtractor is a wrapper, adapt accordingly.
+        this.addRenderableOnly((GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) -> {
+            // If GuiGraphics is a wrapper, adapt accordingly.
             // For example, if it's a subclass, you might cast:
-            GuiGraphicsExtractor extractor = (GuiGraphicsExtractor) guiGraphics;
+            GuiGraphics extractor = (GuiGraphics) guiGraphics;
             RenderUtil.drawScaledText(
                 extractor,
                 labelText,

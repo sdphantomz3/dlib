@@ -1,7 +1,7 @@
 package com.drypted.dlib.client.gui;
 
 import com.drypted.dlib.client.config.ConfigManager;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -104,8 +104,8 @@ public class DLibMainScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        super.render(graphics, mouseX, mouseY, delta);
         int leftPanelWidth = 140;
         // Vertical divider between the two panels
         graphics.fill(leftPanelWidth, 0, leftPanelWidth + 1, this.height, 0xFF555555);
@@ -144,6 +144,6 @@ public class DLibMainScreen extends Screen {
 
     @Override
     public void onClose() {
-        if (this.minecraft != null) this.minecraft.gui.setScreen(this.parentScreen);
+        if (this.minecraft != null) this.minecraft.setScreen(this.parentScreen);
     }
 }

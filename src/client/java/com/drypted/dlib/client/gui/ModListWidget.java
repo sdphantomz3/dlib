@@ -3,7 +3,7 @@ package com.drypted.dlib.client.gui;
 import com.drypted.dlib.client.config.ConfigManager;
 import com.drypted.dlib.client.util.RenderUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -122,12 +122,12 @@ public class ModListWidget extends AbstractWidget {
     // ── Render ───────────────────────────────────────────────────────────────
 
     @Override
-    public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float pt) {
+    public void renderWidget(GuiGraphics g, int mx, int my, float pt) {
         drawModList(g, mx, my);
         drawActionBar(g, mx, my, pt);
     }
 
-    private void drawModList(GuiGraphicsExtractor g, int mx, int my) {
+    private void drawModList(GuiGraphics g, int mx, int my) {
         int viewTop    = this.getY() + 15;
         int viewBottom = listBottom();
         int viewHeight = viewBottom - viewTop;
@@ -162,7 +162,7 @@ public class ModListWidget extends AbstractWidget {
         }
     }
 
-    private void drawActionBar(GuiGraphicsExtractor g, int mx, int my, float pt) {
+    private void drawActionBar(GuiGraphics g, int mx, int my, float pt) {
         boolean active = parent.hasModSelected();
 
         // Separator line
@@ -180,7 +180,7 @@ public class ModListWidget extends AbstractWidget {
         saveButton.setWidth(bW);
         saveButton.setHeight(BTN_H);
         saveButton.active = active;
-        saveButton.extractRenderState(g, mx, my, pt);
+        saveButton.render(g, mx, my, pt);
         // Draw icon on top
         drawIconSave(g, x1 + bW / 2, bY + BTN_H / 2, active ? ICO_SAVE : ICO_DIS);
 
@@ -191,7 +191,7 @@ public class ModListWidget extends AbstractWidget {
         resetButton.setWidth(bW);
         resetButton.setHeight(BTN_H);
         resetButton.active = active;
-        resetButton.extractRenderState(g, mx, my, pt);
+        resetButton.render(g, mx, my, pt);
         drawIconReset(g, x2 + bW / 2, bY + BTN_H / 2, active ? ICO_RESET : ICO_DIS);
 
         // ── Discard button ──
@@ -201,7 +201,7 @@ public class ModListWidget extends AbstractWidget {
         discardButton.setWidth(bW);
         discardButton.setHeight(BTN_H);
         discardButton.active = active;
-        discardButton.extractRenderState(g, mx, my, pt);
+        discardButton.render(g, mx, my, pt);
         drawIconDiscard(g, x3 + bW / 2, bY + BTN_H / 2, active ? ICO_DISCARD : ICO_DIS);
     }
 
@@ -210,7 +210,7 @@ public class ModListWidget extends AbstractWidget {
     /**
      * ✔ checkmark – 7 wide × 5 tall, centred on (cx, cy)
      */
-    private void drawIconSave(GuiGraphicsExtractor g, int cx, int cy, int c) {
+    private void drawIconSave(GuiGraphics g, int cx, int cy, int c) {
         int x = cx - 3, y = cy - 2;
         px(g, x+5, y,   c);
         px(g, x+4, y+1, c); px(g, x+5, y+1, c);
@@ -222,7 +222,7 @@ public class ModListWidget extends AbstractWidget {
     /**
      * ✖ X – two crossing diagonals, 7×7, centred on (cx, cy)
      */
-    private void drawIconDiscard(GuiGraphicsExtractor g, int cx, int cy, int c) {
+    private void drawIconDiscard(GuiGraphics g, int cx, int cy, int c) {
         int x = cx - 3, y = cy - 3;
         for (int i = 0; i < 7; i++) {
             px(g, x+i,   y+i,   c);
@@ -235,7 +235,7 @@ public class ModListWidget extends AbstractWidget {
     /**
      * ⟲ reset arrow – circular arc with arrowhead, 7×7, centred on (cx, cy)
      */
-    private void drawIconReset(GuiGraphicsExtractor g, int cx, int cy, int c) {
+    private void drawIconReset(GuiGraphics g, int cx, int cy, int c) {
         int x = cx - 3, y = cy - 3;
         // Arc
         px(g, x+2, y,   c); px(g, x+3, y,   c); px(g, x+4, y,   c);
@@ -249,7 +249,7 @@ public class ModListWidget extends AbstractWidget {
         px(g, x+4, y+4, c); px(g, x+5, y+4, c); px(g, x+6, y+4, c);
     }
 
-    private static void px(GuiGraphicsExtractor g, int x, int y, int c) {
+    private static void px(GuiGraphics g, int x, int y, int c) {
         g.fill(x, y, x+1, y+1, c);
     }
 

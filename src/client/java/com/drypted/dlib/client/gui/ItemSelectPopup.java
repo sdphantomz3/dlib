@@ -3,7 +3,7 @@ package com.drypted.dlib.client.gui;
 import com.drypted.dlib.client.config.ConfigManager;
 import com.drypted.dlib.client.util.RenderUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -265,7 +265,7 @@ public class ItemSelectPopup extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         // 1. Draw backdrop and panel FIRST (behind everything)
         drawBackdropAndPanel(graphics);
 
@@ -273,13 +273,13 @@ public class ItemSelectPopup extends Screen {
         drawGridContent(graphics, mouseX, mouseY);
 
         // 3. Draw the widgets (buttons, search field) ON TOP
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
+        super.render(graphics, mouseX, mouseY, delta);
 
         // 4. Draw icon overlays on top of buttons
         drawIconOverlays(graphics);
     }
 
-    private void drawBackdropAndPanel(GuiGraphicsExtractor graphics) {
+    private void drawBackdropAndPanel(GuiGraphics graphics) {
         // Semi-transparent black overlay on the game world
         // graphics.fill(0, 0, this.width, this.height, COLOR_BACKDROP);
 
@@ -314,7 +314,7 @@ public class ItemSelectPopup extends Screen {
         graphics.fill(panelX + PADDING, header2Y, panelX + panelW - PADDING, header2Y + 1, SEPARATOR);
     }
 
-    private void drawGridContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    private void drawGridContent(GuiGraphics graphics, int mouseX, int mouseY) {
         // --- Item grid ---
         graphics.enableScissor(panelX, gridTop, panelX + panelW, gridBottom);
 
@@ -404,7 +404,7 @@ public class ItemSelectPopup extends Screen {
         }
     }
 
-    private void drawIconOverlays(GuiGraphicsExtractor graphics) {
+    private void drawIconOverlays(GuiGraphics graphics) {
         // Icon overlays on the Save/Discard buttons
         drawIconDiscard(graphics, discardButton.getX() + ACTION_BTN_W / 2, footerRowY + ACTION_BTN_H / 2, ICO_DISCARD);
         drawIconSave(graphics, saveButton.getX() + ACTION_BTN_W / 2, footerRowY + ACTION_BTN_H / 2, ICO_SAVE);
@@ -413,7 +413,7 @@ public class ItemSelectPopup extends Screen {
     // ── Pixel-art icons ────────────────────────────────────────────────────────
 
     /** Checkmark, 7 wide × 5 tall, centred on (cx, cy). */
-    private static void drawIconSave(GuiGraphicsExtractor g, int cx, int cy, int c) {
+    private static void drawIconSave(GuiGraphics g, int cx, int cy, int c) {
         int x = cx - 3, y = cy - 2;
         px(g, x + 5, y, c);
         px(g, x + 4, y + 1, c); px(g, x + 5, y + 1, c);
@@ -423,7 +423,7 @@ public class ItemSelectPopup extends Screen {
     }
 
     /** X, two crossing diagonals, 7×7, centred on (cx, cy). */
-    private static void drawIconDiscard(GuiGraphicsExtractor g, int cx, int cy, int c) {
+    private static void drawIconDiscard(GuiGraphics g, int cx, int cy, int c) {
         int x = cx - 3, y = cy - 3;
         for (int i = 0; i < 7; i++) {
             px(g, x + i, y + i, c);
@@ -433,7 +433,7 @@ public class ItemSelectPopup extends Screen {
         }
     }
 
-    private static void px(GuiGraphicsExtractor g, int x, int y, int c) {
+    private static void px(GuiGraphics g, int x, int y, int c) {
         g.fill(x, y, x + 1, y + 1, c);
     }
 
@@ -542,14 +542,14 @@ public class ItemSelectPopup extends Screen {
             option.value = String.join(",", selectedIds);
         }
         if (onClosed != null) onClosed.run();
-        if (this.minecraft != null) this.minecraft.gui.setScreen(parent);
+        if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 
     private void onDiscard() {
         // Revert to original value
         option.value = originalValue;
         if (onClosed != null) onClosed.run();
-        if (this.minecraft != null) this.minecraft.gui.setScreen(parent);
+        if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 
     @Override
